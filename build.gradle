@@ -1,0 +1,32 @@
+buildscript {
+    repositories {
+        gradlePluginPortal()
+        maven {
+            url = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+        }
+    }
+    dependencies {
+        classpath "com.exactpro.th2:th2-gradle-plugin:0.0.1-dev-5915772757-13a28ae-SNAPSHOT"
+    }
+}
+
+apply plugin: "com.exactpro.th2.common-conventions"
+apply plugin: "com.exactpro.th2.docker-conventions"
+
+apply plugin: 'kotlin-kapt'
+
+dependencies {
+    api platform("com.exactpro.th2:bom:4.5.0")
+    implementation "com.exactpro.th2:common:5.7.2-dev"
+    implementation "com.exactpro.th2:common-utils:2.2.2-dev"
+    implementation "com.exactpro.th2:codec:5.4.1-TH2-5143-+"
+
+    implementation "com.fasterxml.jackson.core:jackson-databind"
+    implementation 'com.github.jsqlparser:jsqlparser:4.7'
+
+    compileOnly "com.google.auto.service:auto-service-annotations:1.1.1"
+    annotationProcessor "com.google.auto.service:auto-service:1.1.1"
+    kapt "com.google.auto.service:auto-service:1.1.1"
+
+    testImplementation "com.github.doyaaaaaken:kotlin-csv-jvm:1.9.2"
+}
