@@ -28,6 +28,8 @@ import com.exactpro.th2.common.utils.message.transport.logId
 import mu.KotlinLogging
 import net.sf.jsqlparser.expression.Expression
 import net.sf.jsqlparser.expression.Function
+import net.sf.jsqlparser.expression.LongValue
+import net.sf.jsqlparser.expression.NullValue
 import net.sf.jsqlparser.expression.StringValue
 import net.sf.jsqlparser.parser.CCJSqlParserUtil
 import net.sf.jsqlparser.statement.insert.Insert
@@ -69,7 +71,7 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                                     insert.columns.forEachIndexed { index, column ->
                                         put(
                                             "${config.columnPrefix}${column.columnName.trim('"')}",
-                                            insert.select.values.expressions[index].toReadable()
+                                            insert.select.values.expressions[index].toReadable(context::warning)
                                         )
                                     }
                                 }
@@ -84,7 +86,7 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                                     update.updateSets.forEach {
                                         put(
                                             "${config.columnPrefix}${it.columns.single().columnName.trim('"')}",
-                                            it.values.single().toReadable()
+                                            it.values.single().toReadable(context::warning)
                                         )
                                     }
                                 }
@@ -140,7 +142,7 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
             LOG_MINER_TABLE_NAME_COLUMN,
         )
 
-        private fun ParsedMessage.toBuilderWithoutBody() = ParsedMessage.builder().apply {
+        internal fun ParsedMessage.toBuilderWithoutBody() = ParsedMessage.builder().apply {
             setId(this@toBuilderWithoutBody.id)
             this@toBuilderWithoutBody.eventId?.let(this::setEventId)
             setType(this@toBuilderWithoutBody.type)
@@ -148,12 +150,24 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
             setProtocol(this@toBuilderWithoutBody.protocol)
         }
 
-        private fun Expression.toReadable(): String {
+        internal fun Function.toReadable(onWarning: (String) -> Unit): Map<String, Any?> {
+            return hashMapOf(
+                "function" to name,
+                "parameters" to parameters.map { it.toReadable(onWarning) }
+            )
+        }
+
+        internal fun Expression.toReadable(onWarning: (String) -> Unit): Any? {
             return when (this) {
-                is Function -> parameters.single().toReadable()
-                is StringValue -> value
-                else -> error("Unsupported expression: $this, type: ${this::class.java}")
-            }.trim()
+                is Function -> toReadable(onWarning)
+                is StringValue -> value.trim()
+                is LongValue -> value
+                is NullValue -> null
+                else -> {
+                    onWarning("Unsupported expression: '$this', type: ${this::class.java}")
+                    toString()
+                }
+            }
         }
     }
 }

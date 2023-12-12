@@ -17,23 +17,29 @@
 package com.exactpro.th2.codec.oracle.logminer
 
 import com.exactpro.th2.codec.api.IReportingContext
-import com.exactpro.th2.codec.api.impl.ReportingContext
+import com.exactpro.th2.codec.oracle.logminer.LogMinerTransformer.Companion.toReadable
 import com.exactpro.th2.codec.oracle.logminer.cfg.LogMinerConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.common.utils.message.transport.toGroup
 import com.github.doyaaaaaken.kotlincsv.dsl.csvReader
+import net.sf.jsqlparser.parser.CCJSqlParserUtil
+import net.sf.jsqlparser.statement.insert.Insert
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.verifyNoMoreInteractions
 import strikt.api.expectThat
 import strikt.assertions.filterIsInstance
 import strikt.assertions.hasSize
 import strikt.assertions.isEqualTo
+import strikt.assertions.isNull
 import strikt.assertions.single
+import strikt.assertions.withElementAt
 import java.time.Instant
 
 class LogMinerTransformerTest {
-    private val reportingContext: IReportingContext = ReportingContext()
+    private val reportingContext: IReportingContext = mock {  }
 
     @Test
     fun decodesDataUsingDefaultHeader() {
@@ -102,7 +108,40 @@ class LogMinerTransformerTest {
                     }
                 }
         }
+        verifyNoMoreInteractions(reportingContext)
+    }
 
+    @Test
+    fun `toReadable test`() {
+        val onWarning: (String) -> Unit = mock {  }
+        val insert = CCJSqlParserUtil.parse("""
+            insert into "OWNER"."table"("NAME","TIMESTAMP","DATE","NUMBER","NULL") 
+            values ('An',TO_TIMESTAMP('12-DEC-23 02.55.01 PM'), TO_DATE('12-DEC-23', 'DD-MON-RR'), 8, NULL);
+        """.trimIndent()) as Insert
+        val result: List<Any?> = insert.select.values.expressions.map { it.toReadable(onWarning) }
+        expectThat(result) {
+            hasSize(5)
+            withElementAt(0) { isEqualTo("An") }
+            withElementAt(1) {
+                isEqualTo(
+                    hashMapOf(
+                        "function" to "TO_TIMESTAMP",
+                        "parameters" to listOf("12-DEC-23 02.55.01 PM")
+                    )
+                )
+            }
+            withElementAt(2) {
+                isEqualTo(
+                    hashMapOf(
+                        "function" to "TO_DATE",
+                        "parameters" to listOf("12-DEC-23", "DD-MON-RR")
+                    )
+                )
+            }
+            withElementAt(3) { isEqualTo(8L) }
+            withElementAt(4) { isNull() }
+        }
+        verifyNoMoreInteractions(onWarning)
     }
 
     private fun loadMessages(): List<ParsedMessage> {
