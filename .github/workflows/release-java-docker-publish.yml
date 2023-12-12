@@ -1,12 +1,9 @@
 name: Build and publish Docker distributions to Github Container Registry ghcr.io
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - dev-version-*
-    paths:
-      - gradle.properties
+    tags:
+      - \d+.\d+.\d+
 
 jobs:
   build-job:
@@ -14,6 +11,6 @@ jobs:
     with:
       build-target: 'Docker'
       docker-username: ${{ github.actor }}
-      devRelease: true
     secrets:
       docker-password: ${{ secrets.GITHUB_TOKEN }}
+      
