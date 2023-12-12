@@ -24,6 +24,7 @@ import com.exactpro.th2.codec.util.ERROR_TYPE_MESSAGE
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Message
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
+import com.exactpro.th2.common.utils.message.transport.logId
 import mu.KotlinLogging
 import net.sf.jsqlparser.expression.Expression
 import net.sf.jsqlparser.expression.Function
@@ -38,72 +39,76 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
     override fun decode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup =
         MessageGroup.builder().apply {
             messageGroup.messages.forEach { message ->
-
                 when (isAppropriate(message)) {
-                    true -> runCatching {
-                        check(message.body.keys.containsAll(REQUIRED_COLUMNS)) {
-                            error("Message doesn't contain required columns ${REQUIRED_COLUMNS.minus(message.body.keys)}")
-                        }
+                    true -> {
+                        LOGGER.debug { "Begin process message ${message.id.logId}" }
+                        runCatching {
+                            check(message.body.keys.containsAll(REQUIRED_COLUMNS)) {
+                                error("Message doesn't contain required columns ${REQUIRED_COLUMNS.minus(message.body.keys)}")
+                            }
 
-                        val operation = requireNotNull(message.body[LOG_MINER_OPERATION_COLUMN]?.toString()) {
-                            "Message doesn't contain required field '$LOG_MINER_OPERATION_COLUMN'"
-                        }
-                        val sqlRedo = requireNotNull(message.body[LOG_MINER_SQL_REDO_COLUMN]?.toString()) {
-                            "Message doesn't contain required field '$LOG_MINER_SQL_REDO_COLUMN'"
-                        }
+                            val operation = requireNotNull(message.body[LOG_MINER_OPERATION_COLUMN]?.toString()) {
+                                "Message doesn't contain required field '$LOG_MINER_OPERATION_COLUMN'"
+                            }
+                            val sqlRedo = requireNotNull(message.body[LOG_MINER_SQL_REDO_COLUMN]?.toString()) {
+                                "Message doesn't contain required field '$LOG_MINER_SQL_REDO_COLUMN'"
+                            }
 
-                        when (operation) {
-                            "INSERT" -> {
-                                val insert = CCJSqlParserUtil.parse(sqlRedo) as Insert
-                                check(insert.columns.size == insert.select.values.expressions.size) {
-                                    "Incorrect query '$sqlRedo', column and value sizes mismatch"
-                                }
-                                message.toBuilderWithoutBody().apply {
-                                    bodyBuilder().apply {
-                                        insert.columns.forEachIndexed { index, column ->
-                                            put(
-                                                "${config.columnPrefix}${column.columnName.trim('"')}",
-                                                insert.select.values.expressions[index].toReadable()
-                                            )
+                            when (operation) {
+                                "INSERT" -> {
+                                    val insert = CCJSqlParserUtil.parse(sqlRedo) as Insert
+                                    check(insert.columns.size == insert.select.values.expressions.size) {
+                                        "Incorrect query '$sqlRedo', column and value sizes mismatch"
+                                    }
+                                    message.toBuilderWithoutBody().apply {
+                                        bodyBuilder().apply {
+                                            insert.columns.forEachIndexed { index, column ->
+                                                put(
+                                                    "${config.columnPrefix}${column.columnName.trim('"')}",
+                                                    insert.select.values.expressions[index].toReadable()
+                                                )
+                                            }
                                         }
                                     }
                                 }
-                            }
 
-                            "UPDATE" -> {
-                                val update = CCJSqlParserUtil.parse(sqlRedo) as Update
+                                "UPDATE" -> {
+                                    val update = CCJSqlParserUtil.parse(sqlRedo) as Update
 
-                                message.toBuilderWithoutBody().apply {
-                                    bodyBuilder().apply {
-                                        update.updateSets.forEach {
-                                            put(
-                                                "${config.columnPrefix}${it.columns.single().columnName.trim('"')}",
-                                                it.values.single().toReadable()
-                                            )
+                                    message.toBuilderWithoutBody().apply {
+                                        bodyBuilder().apply {
+                                            update.updateSets.forEach {
+                                                put(
+                                                    "${config.columnPrefix}${it.columns.single().columnName.trim('"')}",
+                                                    it.values.single().toReadable()
+                                                )
+                                            }
                                         }
                                     }
                                 }
-                            }
 
-                            "DELETE" -> message.toBuilderWithoutBody()
-                            else -> error("Unsupported operation kind '$operation'")
-                        }
-                    }.getOrElse { e ->
-                        LOGGER.error(e) { "Message transformation failure" }
-                        message.toBuilderWithoutBody().apply {
-                            setType(ERROR_TYPE_MESSAGE)
-                            bodyBuilder().put(ERROR_CONTENT_FIELD, e.message)
-                        }
-                    }.apply {
-                        setProtocol(TransformerFactory.AGGREGATED_PROTOCOL)
-                        bodyBuilder().apply {
-                            config.saveColumns.forEach { column ->
-                                message.body[column]?.let { value -> put(column, value) }
+                                "DELETE" -> message.toBuilderWithoutBody()
+                                else -> error("Unsupported operation kind '$operation'")
                             }
-                        }
-                    }.build().also(this::addMessage)
-
-                    false -> addMessage(message)
+                        }.getOrElse { e ->
+                            LOGGER.error(e) { "Message transformation failure" }
+                            message.toBuilderWithoutBody().apply {
+                                setType(ERROR_TYPE_MESSAGE)
+                                bodyBuilder().put(ERROR_CONTENT_FIELD, e.message)
+                            }
+                        }.apply {
+                            setProtocol(TransformerFactory.AGGREGATED_PROTOCOL)
+                            bodyBuilder().apply {
+                                config.saveColumns.forEach { column ->
+                                    message.body[column]?.let { value -> put(column, value) }
+                                }
+                            }
+                        }.build().also(this::addMessage)
+                    }
+                    false -> {
+                        LOGGER.debug { "Skip message ${message.id.logId}" }
+                        addMessage(message)
+                    }
                 }
 
             }
@@ -116,7 +121,9 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
         }
 
         return message is ParsedMessage
-                && (message.protocol.isBlank() || TransformerFactory.PROTOCOLS.contains(message.protocol))
+                && (message.protocol.isBlank() || TransformerFactory.PROTOCOLS.contains(message.protocol)).also {
+            LOGGER.debug { "The ${message.id.logId} message isn't appropriate, type: '${message::class.java}', protocol: '${message.protocol}'" }
+        }
     }
 
     companion object {

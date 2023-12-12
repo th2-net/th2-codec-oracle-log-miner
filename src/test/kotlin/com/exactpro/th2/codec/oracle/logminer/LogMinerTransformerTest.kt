@@ -121,6 +121,7 @@ class LogMinerTransformerTest {
                                 .setTimestamp(Instant.now())
                             setBody(row)
                             setType("test-type")
+                            setProtocol("")
                         }.build()
                     }.toList()
             }
