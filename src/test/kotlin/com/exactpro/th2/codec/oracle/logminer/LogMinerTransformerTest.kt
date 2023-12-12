@@ -109,7 +109,9 @@ class LogMinerTransformerTest {
         return LogMinerTransformerTest::class.java.getResourceAsStream(
             "/com/exactpro/th2/codec/oracle/logminer/log_miner.csv"
         ).use { inputStream ->
-            requireNotNull(inputStream)
+            requireNotNull(inputStream) {
+                "'log_miner.csv' resource doesn't exist"
+            }
             csvReader().open(inputStream) {
                 readAllWithHeaderAsSequence()
                     .mapIndexed { index, row ->

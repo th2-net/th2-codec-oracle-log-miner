@@ -15,7 +15,7 @@
  */
 package com.exactpro.th2.codec.oracle.logminer.cfg
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.exactpro.th2.common.schema.factory.AbstractCommonFactory.MAPPER
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
@@ -31,9 +31,5 @@ class LogMinerLogMinerConfigurationTest {
         val cfg: LogMinerConfiguration = MAPPER.readValue(value, LogMinerConfiguration::class.java)
         assertEquals("my_prefix_", cfg.columnPrefix)
         assertEquals(setOf("A", "B"), cfg.saveColumns)
-    }
-
-    companion object {
-        private val MAPPER = ObjectMapper()
     }
 }

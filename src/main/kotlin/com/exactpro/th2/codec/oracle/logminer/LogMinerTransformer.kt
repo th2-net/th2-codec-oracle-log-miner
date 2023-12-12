@@ -39,77 +39,75 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
     override fun decode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup =
         MessageGroup.builder().apply {
             messageGroup.messages.forEach { message ->
-                when (isAppropriate(message)) {
-                    true -> {
-                        LOGGER.debug { "Begin process message ${message.id.logId}" }
-                        runCatching {
-                            check(message.body.keys.containsAll(REQUIRED_COLUMNS)) {
-                                error("Message doesn't contain required columns ${REQUIRED_COLUMNS.minus(message.body.keys)}")
-                            }
-
-                            val operation = requireNotNull(message.body[LOG_MINER_OPERATION_COLUMN]?.toString()) {
-                                "Message doesn't contain required field '$LOG_MINER_OPERATION_COLUMN'"
-                            }
-                            val sqlRedo = requireNotNull(message.body[LOG_MINER_SQL_REDO_COLUMN]?.toString()) {
-                                "Message doesn't contain required field '$LOG_MINER_SQL_REDO_COLUMN'"
-                            }
-
-                            when (operation) {
-                                "INSERT" -> {
-                                    val insert = CCJSqlParserUtil.parse(sqlRedo) as Insert
-                                    check(insert.columns.size == insert.select.values.expressions.size) {
-                                        "Incorrect query '$sqlRedo', column and value sizes mismatch"
-                                    }
-                                    message.toBuilderWithoutBody().apply {
-                                        bodyBuilder().apply {
-                                            insert.columns.forEachIndexed { index, column ->
-                                                put(
-                                                    "${config.columnPrefix}${column.columnName.trim('"')}",
-                                                    insert.select.values.expressions[index].toReadable()
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
-                                "UPDATE" -> {
-                                    val update = CCJSqlParserUtil.parse(sqlRedo) as Update
-
-                                    message.toBuilderWithoutBody().apply {
-                                        bodyBuilder().apply {
-                                            update.updateSets.forEach {
-                                                put(
-                                                    "${config.columnPrefix}${it.columns.single().columnName.trim('"')}",
-                                                    it.values.single().toReadable()
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
-                                "DELETE" -> message.toBuilderWithoutBody()
-                                else -> error("Unsupported operation kind '$operation'")
-                            }
-                        }.getOrElse { e ->
-                            LOGGER.error(e) { "Message transformation failure" }
-                            message.toBuilderWithoutBody().apply {
-                                setType(ERROR_TYPE_MESSAGE)
-                                bodyBuilder().put(ERROR_CONTENT_FIELD, e.message)
-                            }
-                        }.apply {
-                            setProtocol(TransformerFactory.AGGREGATED_PROTOCOL)
-                            bodyBuilder().apply {
-                                config.saveColumns.forEach { column ->
-                                    message.body[column]?.let { value -> put(column, value) }
-                                }
-                            }
-                        }.build().also(this::addMessage)
-                    }
-                    false -> {
-                        LOGGER.debug { "Skip message ${message.id.logId}" }
-                        addMessage(message)
-                    }
+                if (!isAppropriate(message)) {
+                    LOGGER.debug { "Skip message ${message.id.logId}" }
+                    addMessage(message)
+                    return@forEach
                 }
+
+                LOGGER.debug { "Begin process message ${message.id.logId}" }
+                runCatching {
+                    check(message.body.keys.containsAll(REQUIRED_COLUMNS)) {
+                        error("Message doesn't contain required columns ${REQUIRED_COLUMNS.minus(message.body.keys)}")
+                    }
+
+                    val operation = requireNotNull(message.body[LOG_MINER_OPERATION_COLUMN]?.toString()) {
+                        "Message doesn't contain required field '$LOG_MINER_OPERATION_COLUMN'"
+                    }
+                    val sqlRedo = requireNotNull(message.body[LOG_MINER_SQL_REDO_COLUMN]?.toString()) {
+                        "Message doesn't contain required field '$LOG_MINER_SQL_REDO_COLUMN'"
+                    }
+
+                    when (operation) {
+                        "INSERT" -> {
+                            val insert = CCJSqlParserUtil.parse(sqlRedo) as Insert
+                            check(insert.columns.size == insert.select.values.expressions.size) {
+                                "Incorrect query '$sqlRedo', column and value sizes mismatch"
+                            }
+                            message.toBuilderWithoutBody().apply {
+                                bodyBuilder().apply {
+                                    insert.columns.forEachIndexed { index, column ->
+                                        put(
+                                            "${config.columnPrefix}${column.columnName.trim('"')}",
+                                            insert.select.values.expressions[index].toReadable()
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        "UPDATE" -> {
+                            val update = CCJSqlParserUtil.parse(sqlRedo) as Update
+
+                            message.toBuilderWithoutBody().apply {
+                                bodyBuilder().apply {
+                                    update.updateSets.forEach {
+                                        put(
+                                            "${config.columnPrefix}${it.columns.single().columnName.trim('"')}",
+                                            it.values.single().toReadable()
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        "DELETE" -> message.toBuilderWithoutBody()
+                        else -> error("Unsupported operation kind '$operation'")
+                    }
+                }.getOrElse { e ->
+                    LOGGER.error(e) { "Message transformation failure" }
+                    message.toBuilderWithoutBody().apply {
+                        setType(ERROR_TYPE_MESSAGE)
+                        bodyBuilder().put(ERROR_CONTENT_FIELD, e.message)
+                    }
+                }.apply {
+                    setProtocol(TransformerFactory.AGGREGATED_PROTOCOL)
+                    bodyBuilder().apply {
+                        config.saveColumns.forEach { column ->
+                            message.body[column]?.let { value -> put(column, value) }
+                        }
+                    }
+                }.build().also(this::addMessage)
 
             }
         }.build()
