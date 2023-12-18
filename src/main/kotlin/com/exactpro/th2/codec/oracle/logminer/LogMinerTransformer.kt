@@ -50,21 +50,21 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                 LOGGER.debug { "Begin process message ${message.id.logId}" }
                 runCatching {
                     check(message.body.keys.containsAll(REQUIRED_COLUMNS)) {
-                        error("Message doesn't contain required columns ${REQUIRED_COLUMNS.minus(message.body.keys)}")
+                        error("Message doesn't contain required columns ${REQUIRED_COLUMNS.minus(message.body.keys)}, id: ${message.id.logId}")
                     }
 
                     val operation = requireNotNull(message.body[LOG_MINER_OPERATION_COLUMN]?.toString()) {
-                        "Message doesn't contain required field '$LOG_MINER_OPERATION_COLUMN'"
+                        "Message doesn't contain required field '$LOG_MINER_OPERATION_COLUMN', id: ${message.id.logId}"
                     }
                     val sqlRedo = requireNotNull(message.body[LOG_MINER_SQL_REDO_COLUMN]?.toString()) {
-                        "Message doesn't contain required field '$LOG_MINER_SQL_REDO_COLUMN'"
+                        "Message doesn't contain required field '$LOG_MINER_SQL_REDO_COLUMN', id: ${message.id.logId}"
                     }
 
                     when (operation) {
                         "INSERT" -> {
                             val insert = CCJSqlParserUtil.parse(sqlRedo) as Insert
                             check(insert.columns.size == insert.select.values.expressions.size) {
-                                "Incorrect query '$sqlRedo', column and value sizes mismatch"
+                                "Incorrect query '$sqlRedo', column and value sizes mismatch, id: ${message.id.logId}"
                             }
                             message.toBuilderWithoutBody().apply {
                                 bodyBuilder().apply {
@@ -94,10 +94,10 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                         }
 
                         "DELETE" -> message.toBuilderWithoutBody()
-                        else -> error("Unsupported operation kind '$operation'")
+                        else -> error("Unsupported operation kind '$operation', id: ${message.id.logId}")
                     }
                 }.getOrElse { e ->
-                    LOGGER.error(e) { "Message transformation failure" }
+                    LOGGER.error(e) { "Message transformation failure, id: ${message.id.logId}" }
                     message.toBuilderWithoutBody().apply {
                         setType(ERROR_TYPE_MESSAGE)
                         bodyBuilder().put(ERROR_CONTENT_FIELD, e.message)
