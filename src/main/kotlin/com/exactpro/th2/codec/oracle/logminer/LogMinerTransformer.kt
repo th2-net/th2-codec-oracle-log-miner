@@ -94,7 +94,7 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                         }
 
                         "DELETE" -> message.toBuilderWithoutBody()
-                        else -> error("Unsupported operation kind '$operation', id: ${message.id.logId}")
+                        else -> error("Unsupported operation kind '$operation'")
                     }
                 }.getOrElse { e ->
                     LOGGER.error(e) { "Message transformation failure, id: ${message.id.logId}" }
