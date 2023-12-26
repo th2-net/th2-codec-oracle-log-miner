@@ -62,6 +62,7 @@ saveColumns: [ OPERATION, SQL_REDO, ROW_ID, TIMESTAMP, TABLE_NAME ]
 
 **columnPrefix** - prefix for parsed columns.
 **saveColumns** - set of column names to copy from source message.
+All columns which log miner allow to select are described in the [document](https://docs.oracle.com/en/database/oracle/oracle-database/19/refrn/V-LOGMNR_CONTENTS.html#GUID-B9196942-07BF-4935-B603-FA875064F5C3) 
 
 ## Full configuration example
 
