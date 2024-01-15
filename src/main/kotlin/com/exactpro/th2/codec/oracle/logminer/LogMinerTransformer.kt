@@ -97,7 +97,10 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                         else -> error("Unsupported operation kind '$operation'")
                     }
                 }.getOrElse { e ->
-                    LOGGER.error(e) { "Message transformation failure, id: ${message.id.logId}" }
+                    val text = "Message transformation failure, id: ${message.id.logId}"
+                    LOGGER.error(e) { text }
+
+                    context.warning("$text ${e.message?.lines()?.first()}")
                     message.toBuilderWithoutBody().apply {
                         setType(ERROR_TYPE_MESSAGE)
                         bodyBuilder().put(ERROR_CONTENT_FIELD, e.message)

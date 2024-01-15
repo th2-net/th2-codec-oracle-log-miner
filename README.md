@@ -1,4 +1,4 @@
-# th2-codec-oracle-log-miner (0.0.1)
+# th2-codec-oracle-log-miner (0.0.2)
 
 ## Description
 
@@ -134,6 +134,9 @@ spec:
 ```
 
 ## Release notes
+
+### 0.0.2
++ Publish warning event with details about internal exception.
 
 ### 0.0.1
 + Parse `INSERT` / `UPDATE` / `DELETE` SQL queries from the `SQL_REDO` field.
