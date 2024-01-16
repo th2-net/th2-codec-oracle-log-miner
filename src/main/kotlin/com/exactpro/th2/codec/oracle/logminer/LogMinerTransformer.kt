@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -97,10 +97,15 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                         else -> error("Unsupported operation kind '$operation'")
                     }
                 }.getOrElse { e ->
-                    val text = "Message transformation failure, id: ${message.id.logId}"
-                    LOGGER.error(e) { text }
+                    if (messageGroup.messages.size == 1) {
+                        throw e
+                    }
 
-                    context.warning("$text ${e.message?.lines()?.first()}")
+                    "Message transformation failure, id: ${message.id.logId}".also { text ->
+                        LOGGER.error(e) { text }
+                        context.warning("$text ${e.message?.lines()?.first()}")
+                    }
+
                     message.toBuilderWithoutBody().apply {
                         setType(ERROR_TYPE_MESSAGE)
                         bodyBuilder().put(ERROR_CONTENT_FIELD, e.message)
