@@ -171,7 +171,7 @@ class LogMinerTransformerTest {
                     get { protocol }.isEqualTo("[csv,oracle-log-miner]")
                     get { body }.isEqualTo(
                         mapOf(
-                            "content" to UNEXPECTED_TOKEN_TEXT
+                            "content" to """Encountered unexpected token: "broken" <S_IDENTIFIER>"""
                         ) + message.body.filterKeys { config.saveColumns.contains(it) }
                     )
                 }
@@ -188,7 +188,7 @@ class LogMinerTransformerTest {
                     )
                 }
             }
-        verify(reportingContext).warning(eq("""Message transformation failure, id: ${source[0].id.logId} net.sf.jsqlparser.parser.ParseException: Encountered unexpected token: "broken" <S_IDENTIFIER>"""))
+        verify(reportingContext).warning(eq("""Message transformation failure, id: ${source[0].id.logId} Encountered unexpected token: "broken" <S_IDENTIFIER>"""))
         verify(reportingContext).warning(eq("""Message transformation failure, id: ${source[1].id.logId} Unsupported operation kind 'broken operation'"""))
     }
 
@@ -282,51 +282,5 @@ class LogMinerTransformerTest {
                     }.toList()
             }
         }
-    }
-
-    companion object {
-        private val UNEXPECTED_TOKEN_TEXT = """
-                        net.sf.jsqlparser.parser.ParseException: Encountered unexpected token: "broken" <S_IDENTIFIER>
-                            at line 1, column 1.
-                        
-                        Was expecting one of:
-                        
-                            "("
-                            "ALTER"
-                            "ANALYZE"
-                            "BEGIN"
-                            "CALL"
-                            "COMMENT"
-                            "COMMIT"
-                            "CREATE"
-                            "DECLARE"
-                            "DELETE"
-                            "DESCRIBE"
-                            "DROP"
-                            "EXEC"
-                            "EXECUTE"
-                            "EXPLAIN"
-                            "GRANT"
-                            "IF"
-                            "INSERT"
-                            "MERGE"
-                            "PURGE"
-                            "RENAME"
-                            "REPLACE"
-                            "RESET"
-                            "ROLLBACK"
-                            "SAVEPOINT"
-                            "SET"
-                            "SHOW"
-                            "TRUNCATE"
-                            "UPDATE"
-                            "UPSERT"
-                            "USE"
-                            "VALUE"
-                            "VALUES"
-                            "WITH"
-                            <K_SELECT>
-                        
-                    """.trimIndent()
     }
 }

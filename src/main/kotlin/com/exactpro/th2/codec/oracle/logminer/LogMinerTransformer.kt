@@ -26,12 +26,14 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGro
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.common.utils.message.transport.logId
 import mu.KotlinLogging
+import net.sf.jsqlparser.JSQLParserException
 import net.sf.jsqlparser.expression.Expression
 import net.sf.jsqlparser.expression.Function
 import net.sf.jsqlparser.expression.LongValue
 import net.sf.jsqlparser.expression.NullValue
 import net.sf.jsqlparser.expression.StringValue
 import net.sf.jsqlparser.parser.CCJSqlParserUtil
+import net.sf.jsqlparser.parser.ParseException
 import net.sf.jsqlparser.statement.insert.Insert
 import net.sf.jsqlparser.statement.update.Update
 import kotlin.contracts.ExperimentalContracts
@@ -101,14 +103,16 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                         throw e
                     }
 
+                    val error = e.extractMessage()
+
                     "Message transformation failure, id: ${message.id.logId}".also { text ->
                         LOGGER.error(e) { text }
-                        context.warning("$text ${e.message?.lines()?.first()}")
+                        context.warning("$text $error")
                     }
 
                     message.toBuilderWithoutBody().apply {
                         setType(ERROR_TYPE_MESSAGE)
-                        bodyBuilder().put(ERROR_CONTENT_FIELD, e.message)
+                        bodyBuilder().put(ERROR_CONTENT_FIELD, error)
                     }
                 }.apply {
                     setProtocol(TransformerFactory.AGGREGATED_PROTOCOL)
@@ -141,6 +145,8 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
         private const val LOG_MINER_ROW_ID_COLUMN = "ROW_ID"
         private const val LOG_MINER_TIMESTAMP_COLUMN = "TIMESTAMP"
         private const val LOG_MINER_TABLE_NAME_COLUMN = "TABLE_NAME"
+
+        private val PARSE_EXCEPTION_PREFIX = "${ParseException::class.java.name}: "
 
         internal val REQUIRED_COLUMNS: Set<String> = hashSetOf(
             LOG_MINER_OPERATION_COLUMN,
@@ -177,5 +183,12 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                 }
             }
         }
+
+        private fun Throwable.extractMessage(): String? =
+            if (this is JSQLParserException && message?.startsWith(PARSE_EXCEPTION_PREFIX) == true) {
+                message?.lines()?.first()?.removePrefix(PARSE_EXCEPTION_PREFIX)
+            } else {
+                message
+            }
     }
 }
