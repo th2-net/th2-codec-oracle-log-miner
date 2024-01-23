@@ -59,12 +59,14 @@ This operation isn't support.
 
 Oracle log miner codec (transformer) has the following parameters:
 ```yaml
-columnPrefix: 'th2_'
-saveColumns: [ OPERATION, SQL_REDO, ROW_ID, TIMESTAMP, TABLE_NAME ]
+column-prefix: 'th2_'
+save-columns: [ OPERATION, SQL_REDO, ROW_ID, TIMESTAMP, TABLE_NAME ]
 ```
 
-**columnPrefix** - prefix for parsed columns.
-**saveColumns** - set of column names to copy from source message.
+**truncate-update-query-from-where-clause** - if true, codec truncates the tail of UPDATE query starting from the WHERE clause before deep parsing.
+This operation improve performance without negative impact, because codec extracts data from the SET clause only.
+**column-prefix** - prefix for parsed columns.
+**save-columns** - set of column names to copy from source message.
 All columns which log miner allow to select are described in the [document](https://docs.oracle.com/en/database/oracle/oracle-database/19/refrn/V-LOGMNR_CONTENTS.html#GUID-B9196942-07BF-4935-B603-FA875064F5C3) 
 
 ## Full configuration example
@@ -87,6 +89,7 @@ spec:
     disableProtocolCheck: true
     
     codecSettings:
+      truncate-update-query-from-where-clause: true
       column-prefix: th2_
       save-columns:
         - OPERATION
@@ -139,7 +142,8 @@ spec:
 ## Release notes
 
 ### 0.1.0
-+ Migrated to ANTLR 4 approach for parsing Oracle SQL queries. 
++ Migrated to ANTLR 4 approach for parsing Oracle SQL queries.
++ Added `truncate-update-query-from-where-clause` option temporary.
 
 ### 0.0.2
 + Publish warning event with details about internal exception.

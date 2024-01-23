@@ -79,7 +79,12 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                         "UPDATE" -> {
                             message.toBuilderWithoutBody().apply {
                                 bodyBuilder().apply {
-                                    val lexer = PlSqlLexer(CharStreams.fromString(sqlRedo))
+                                    val preparedQuery = if (config.truncateUpdateQueryFromWhereClause) {
+                                        truncateFromWhereClause(sqlRedo)
+                                    } else {
+                                        sqlRedo
+                                    }
+                                    val lexer = PlSqlLexer(CharStreams.fromString(preparedQuery))
                                     val tokens = CommonTokenStream(lexer)
                                     val parser = PlSqlParser(tokens)
                                     val walker = ParseTreeWalker()
@@ -554,6 +559,7 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
         private const val LOG_MINER_ROW_ID_COLUMN = "ROW_ID"
         private const val LOG_MINER_TIMESTAMP_COLUMN = "TIMESTAMP"
         private const val LOG_MINER_TABLE_NAME_COLUMN = "TABLE_NAME"
+        private const val WHERE_CLAUSE = "WHERE"
 
         internal val REQUIRED_COLUMNS: Set<String> = hashSetOf(
             LOG_MINER_OPERATION_COLUMN,
@@ -562,6 +568,15 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
             LOG_MINER_TIMESTAMP_COLUMN,
             LOG_MINER_TABLE_NAME_COLUMN,
         )
+
+        internal fun truncateFromWhereClause(query: String): String {
+            val whereIndex = query.indexOf(WHERE_CLAUSE, ignoreCase = true)
+            return if (whereIndex == -1) {
+                query
+            } else {
+                "${query.substring(0, whereIndex)};"
+            }
+        }
 
         internal fun ParsedMessage.toBuilderWithoutBody() = ParsedMessage.builder().apply {
             setId(this@toBuilderWithoutBody.id)

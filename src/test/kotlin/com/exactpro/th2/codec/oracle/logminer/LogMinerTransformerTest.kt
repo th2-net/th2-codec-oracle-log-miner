@@ -19,6 +19,7 @@ package com.exactpro.th2.codec.oracle.logminer
 import PlSqlLexer
 import PlSqlParser
 import com.exactpro.th2.codec.api.IReportingContext
+import com.exactpro.th2.codec.oracle.logminer.LogMinerTransformer.Companion.truncateFromWhereClause
 import com.exactpro.th2.codec.oracle.logminer.cfg.LogMinerConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
@@ -35,6 +36,8 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
@@ -329,6 +332,18 @@ class LogMinerTransformerTest {
                 }
             }
         }
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        """abcWHEREcde,abc;""",
+        """abc WHERE cde,abc ;""",
+        """abcwherecde,abc;""",
+        """abc where cde,abc ;""",
+
+    )
+    fun `truncateFromWhereClause test`(source: String, target: String) {
+        assertEquals(target, truncateFromWhereClause(source))
     }
 
     private fun loadMessages(): List<ParsedMessage> {
