@@ -1,4 +1,4 @@
-# th2-codec-oracle-log-miner (0.0.2)
+# th2-codec-oracle-log-miner (0.1.0)
 
 ## Description
 
@@ -7,6 +7,9 @@ Designed for transform parsed message at the end of the pipeline
 2. [th2-codec-csv](https://github.com/th2-net/th2-codec-csv)
 
 The codec (transformer) is based on [th2-codec](https://github.com/th2-net/th2-codec). You can find additional information [here](https://github.com/th2-net/th2-codec/blob/master/README.md)
+
+Codec uses ANTLR4 for parsing Oracle SQL queries.
+Original grammar can be found at https://github.com/antlr/grammars-v4/tree/master/sql/plsql.
 
 ## Decoding (transformation)
 
@@ -134,6 +137,9 @@ spec:
 ```
 
 ## Release notes
+
+### 0.1.0
++ Migrated to ANTLR 4 approach for parsing Oracle SQL queries. 
 
 ### 0.0.2
 + Publish warning event with details about internal exception.

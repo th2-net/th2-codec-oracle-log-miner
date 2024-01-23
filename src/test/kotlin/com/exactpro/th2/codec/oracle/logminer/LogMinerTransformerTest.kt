@@ -16,19 +16,21 @@
 
 package com.exactpro.th2.codec.oracle.logminer
 
+import PlSqlLexer
+import PlSqlParser
 import com.exactpro.th2.codec.api.IReportingContext
-import com.exactpro.th2.codec.oracle.logminer.LogMinerTransformer.Companion.toReadable
 import com.exactpro.th2.codec.oracle.logminer.cfg.LogMinerConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.builders.MapBuilder
 import com.exactpro.th2.common.utils.message.transport.logId
 import com.exactpro.th2.common.utils.message.transport.toGroup
 import com.github.doyaaaaaken.kotlincsv.dsl.csvReader
-import net.sf.jsqlparser.JSQLParserException
-import net.sf.jsqlparser.parser.CCJSqlParserUtil
-import net.sf.jsqlparser.statement.insert.Insert
+import org.antlr.v4.runtime.CharStreams
+import org.antlr.v4.runtime.CommonTokenStream
+import org.antlr.v4.runtime.tree.ParseTreeWalker
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -40,6 +42,7 @@ import org.mockito.kotlin.verifyNoMoreInteractions
 import strikt.api.expectThat
 import strikt.assertions.filterIsInstance
 import strikt.assertions.hasSize
+import strikt.assertions.isA
 import strikt.assertions.isEqualTo
 import strikt.assertions.isNull
 import strikt.assertions.single
@@ -78,20 +81,27 @@ class LogMinerTransformerTest {
                         get { eventId }.isEqualTo(source.eventId)
                         get { type }.isEqualTo("test-type")
                         get { protocol }.isEqualTo("[csv,oracle-log-miner]")
-                        get { body }.isEqualTo(mapOf(
-                            "th2_SALARY" to "110,000",
-                            "th2_DENTAL_PLAN" to "Delta Dental",
-                            "th2_ID" to "1",
-                            "th2_SICK_TIME" to "5",
-                            "th2_PLAN" to "25000",
-                            "th2_TITLE" to "Manager",
-                            "th2_TIME_OFF" to "15",
-                            "th2_HEALTH_PLAN" to "Blue Cross and Blue Shield",
-                            "th2_NAME" to "Chris Montgomery",
-                            "th2_VISION_PLAN" to "Aetna Vision",
-                            "th2_SAVINGS" to "1",
-                            "th2_BONUS_STRUCTURE" to "5% Quarterly",
-                        ) + source.body.filterKeys { config.saveColumns.contains(it) })
+                        get { body }.isA<Map<String, Any?>>().and {
+                            hasSize(12 + config.saveColumns.size)
+                            get { get("th2_SALARY") }.isEqualTo("110,000 ")
+                            get { get("th2_DENTAL_PLAN") }.isEqualTo("Delta Dental ")
+                            get { get("th2_ID") }.isEqualTo("1")
+                            get { get("th2_SICK_TIME") }.isEqualTo("5")
+                            get { get("th2_PLAN") }.isEqualTo("25000")
+                            get { get("th2_TITLE") }.isEqualTo("Manager ")
+                            get { get("th2_TIME_OFF") }.isEqualTo("15")
+                            get { get("th2_HEALTH_PLAN") }.isEqualTo("Blue Cross and Blue Shield ")
+                            get { get("th2_NAME") }.isEqualTo("Chris Montgomery ")
+                            get { get("th2_VISION_PLAN") }.isEqualTo("Aetna Vision ")
+                            get { get("th2_SAVINGS") }.isEqualTo("1")
+                            get { get("th2_BONUS_STRUCTURE") }.isEqualTo("5% Quarterly ")
+
+                            source.body.forEach { (key, value) ->
+                                if (config.saveColumns.contains(key)) {
+                                    get { get(key) }.isEqualTo(value)
+                                }
+                            }
+                        }
                     }
                 }
         }
@@ -171,7 +181,7 @@ class LogMinerTransformerTest {
                     get { protocol }.isEqualTo("[csv,oracle-log-miner]")
                     get { body }.isEqualTo(
                         mapOf(
-                            "content" to """Encountered unexpected token: "broken" <S_IDENTIFIER>"""
+                            "content" to """Incorrect stage for parsing insert statement, expected: PARSED_VALUES, actual: BEGIN, text: brokenquery"""
                         ) + message.body.filterKeys { config.saveColumns.contains(it) }
                     )
                 }
@@ -188,7 +198,7 @@ class LogMinerTransformerTest {
                     )
                 }
             }
-        verify(reportingContext).warning(eq("""Message transformation failure, id: ${source[0].id.logId} Encountered unexpected token: "broken" <S_IDENTIFIER>"""))
+        verify(reportingContext).warning(eq("""Message transformation failure, id: ${source[0].id.logId} Incorrect stage for parsing insert statement, expected: PARSED_VALUES, actual: BEGIN, text: brokenquery"""))
         verify(reportingContext).warning(eq("""Message transformation failure, id: ${source[1].id.logId} Unsupported operation kind 'broken operation'"""))
     }
 
@@ -219,44 +229,106 @@ class LogMinerTransformerTest {
                 .setProtocol("")
                 .build()
 
-        assertThrows<JSQLParserException> {
+        assertThrows<IllegalStateException> {
             codec.decode(source.toGroup(), reportingContext)
+        }.also {
+            assertEquals(it.message, "Incorrect stage for parsing insert statement, expected: PARSED_VALUES, actual: BEGIN, text: brokenquery")
         }
     }
 
     @Test
-    fun `toReadable test`() {
-        val onWarning: (String) -> Unit = mock { }
-        val insert = CCJSqlParserUtil.parse(
-            """
-            insert into "OWNER"."table"("NAME","TIMESTAMP","DATE","NUMBER","NULL") 
-            values ('An',TO_TIMESTAMP('12-DEC-23 02.55.01 PM'), TO_DATE('12-DEC-23', 'DD-MON-RR'), 8, NULL);
-        """.trimIndent()
-        ) as Insert
-        val result: List<Any?> = insert.select.values.expressions.map { it.toReadable(onWarning) }
-        expectThat(result) {
-            hasSize(5)
-            withElementAt(0) { isEqualTo("An") }
-            withElementAt(1) {
-                isEqualTo(
-                    hashMapOf(
-                        "function" to "TO_TIMESTAMP",
-                        "parameters" to listOf("12-DEC-23 02.55.01 PM")
-                    )
-                )
+    fun `insert parser test`() {
+        val lexer = PlSqlLexer(
+            CharStreams.fromString("""
+                INSERT INTO "OWNER"."table"("NAME","TIMESTAMP","DATE","NUMBER","FLOAT","NULL","NESTED") 
+                VALUES ('An',TO_TIMESTAMP('12-DEC-23 02.55.01 PM'), TO_DATE('12-DEC-23', 'DD-MON-RR'), 8, 1.1, NULL, TO_TIMESTAMP(TO_TIMESTAMP('12-DEC-23 02.55.01 PM'))); 
+            """.trimIndent()
+            )
+        )
+        val tokens = CommonTokenStream(lexer)
+        val parser = PlSqlParser(tokens)
+        val walker = ParseTreeWalker()
+        val builder = MapBuilder<String, Any?>()
+        val listener = LogMinerTransformer.InsertListener(builder, TEST_PREFIX)
+        walker.walk(listener, parser.insert_statement())
+
+        expectThat(builder.build()) {
+            hasSize(6)
+            get { get("${TEST_PREFIX}NAME") }.isEqualTo("An")
+            get { get("${TEST_PREFIX}NUMBER") }.isEqualTo(8L)
+            get { get("${TEST_PREFIX}FLOAT") }.isEqualTo(1.1)
+            get { get("${TEST_PREFIX}TIMESTAMP") }.isA<Map<String, Any>>().and {
+                hasSize(2)
+                get { get("function") }.isEqualTo("TO_TIMESTAMP")
+                get { get("parameters") }.isEqualTo(listOf("12-DEC-23 02.55.01 PM"))
             }
-            withElementAt(2) {
-                isEqualTo(
-                    hashMapOf(
-                        "function" to "TO_DATE",
-                        "parameters" to listOf("12-DEC-23", "DD-MON-RR")
-                    )
-                )
+            get { get("${TEST_PREFIX}DATE") }.isA<Map<String, Any>>().and {
+                hasSize(2)
+                get { get("function") }.isEqualTo("TO_DATE")
+                get { get("parameters") }.isEqualTo(listOf("12-DEC-23", "DD-MON-RR"))
             }
-            withElementAt(3) { isEqualTo(8L) }
-            withElementAt(4) { isNull() }
+            get { get("${TEST_PREFIX}NESTED") }.isA<Map<String, Any>>().and {
+                hasSize(2)
+                get { get("function") }.isEqualTo("TO_TIMESTAMP")
+                get { get("parameters") }.isA<List<Map<String, Any>>>().single().and {
+                    hasSize(2)
+                    get { get("function") }.isEqualTo("TO_TIMESTAMP")
+                    get { get("parameters") }.isEqualTo(listOf("12-DEC-23 02.55.01 PM"))
+                }
+            }
         }
-        verifyNoMoreInteractions(onWarning)
+    }
+
+    @Test
+    fun `update parser test`() {
+        val lexer = PlSqlLexer(
+            CharStreams.fromString("""
+                UPDATE "OWNER"."table" SET 
+                  "NAME" = 'An', 
+                  "TIMESTAMP" = TO_TIMESTAMP('12-DEC-23 02.55.01 PM'),
+                  "DATE" = TO_DATE('12-DEC-23', 'DD-MON-RR'),
+                  "NUMBER" = 8,
+                  "FLOAT" = 1.1,
+                  "NULL" = NULL,
+                  "NESTED" = TO_TIMESTAMP(TO_TIMESTAMP('12-DEC-23 02.55.01 PM'))
+                WHERE 
+                  ROWID = 'test-row-id';
+            """.trimIndent()
+            )
+        )
+        val tokens = CommonTokenStream(lexer)
+        val parser = PlSqlParser(tokens)
+        val walker = ParseTreeWalker()
+        val builder = MapBuilder<String, Any?>()
+        val listener = LogMinerTransformer.UpdateListener(builder, TEST_PREFIX)
+        walker.walk(listener, parser.update_statement())
+
+        expectThat(builder.build()) {
+            hasSize(7)
+            get { get("${TEST_PREFIX}NAME") }.isEqualTo("An")
+            get { get("${TEST_PREFIX}NUMBER") }.isEqualTo(8L)
+            get { get("${TEST_PREFIX}FLOAT") }.isEqualTo(1.1)
+            get { get("${TEST_PREFIX}NULL") }.isNull()
+            get { get("${TEST_PREFIX}TIMESTAMP") }.isA<Map<String, Any>>().and {
+                hasSize(2)
+                get { get("function") }.isEqualTo("TO_TIMESTAMP")
+                get { get("parameters") }.isEqualTo(listOf("12-DEC-23 02.55.01 PM"))
+            }
+            get { get("${TEST_PREFIX}DATE") }.isA<Map<String, Any>>().and {
+                hasSize(2)
+                get { get("function") }.isEqualTo("TO_DATE")
+                get { get("parameters") }.isEqualTo(listOf("12-DEC-23", "DD-MON-RR"))
+            }
+            get { get("${TEST_PREFIX}NESTED") }.isA<Map<String, Any>>().and {
+                hasSize(2)
+                get { get("function") }.isEqualTo("TO_TIMESTAMP")
+                get { get("parameters") }.isA<List<Map<String, Any>>>().single().and {
+                    hasSize(2)
+                    get { get("function") }.isEqualTo("TO_TIMESTAMP")
+                    get { get("parameters") }.isEqualTo(listOf("12-DEC-23 02.55.01 PM"))
+                }
+            }
+        }
     }
 
     private fun loadMessages(): List<ParsedMessage> {
@@ -282,5 +354,9 @@ class LogMinerTransformerTest {
                     }.toList()
             }
         }
+    }
+
+    companion object {
+        private const val TEST_PREFIX = "test-prefix-"
     }
 }
