@@ -18,8 +18,6 @@ package com.exactpro.th2.codec.oracle.logminer
 
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.api.IReportingContext
-import com.exactpro.th2.codec.oracle.logminer.antlr.PlSqlLexer
-import com.exactpro.th2.codec.oracle.logminer.antlr.PlSqlParser
 import com.exactpro.th2.codec.oracle.logminer.antlr.listener.InsertListener
 import com.exactpro.th2.codec.oracle.logminer.antlr.listener.UpdateListener
 import com.exactpro.th2.codec.oracle.logminer.cfg.LogMinerConfiguration
@@ -30,9 +28,6 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGro
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.common.utils.message.transport.logId
 import mu.KotlinLogging
-import org.antlr.v4.runtime.CharStreams
-import org.antlr.v4.runtime.CommonTokenStream
-import org.antlr.v4.runtime.tree.ParseTreeWalker
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 
@@ -63,11 +58,7 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                         "INSERT" -> {
                             message.toBuilderWithoutBody().apply {
                                 bodyBuilder().apply {
-                                    val lexer = PlSqlLexer(CharStreams.fromString(sqlRedo))
-                                    val tokens = CommonTokenStream(lexer)
-                                    val parser = PlSqlParser(tokens)
-                                    val walker = ParseTreeWalker()
-                                    walker.walk(InsertListener(this, config.columnPrefix), parser.insert_statement())
+                                    InsertListener.parse(this, config.columnPrefix, sqlRedo)
                                 }
                             }
                         }
@@ -75,16 +66,15 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                         "UPDATE" -> {
                             message.toBuilderWithoutBody().apply {
                                 bodyBuilder().apply {
-                                    val preparedQuery = if (config.truncateUpdateQueryFromWhereClause) {
-                                        truncateFromWhereClause(sqlRedo)
-                                    } else {
-                                        sqlRedo
-                                    }
-                                    val lexer = PlSqlLexer(CharStreams.fromString(preparedQuery))
-                                    val tokens = CommonTokenStream(lexer)
-                                    val parser = PlSqlParser(tokens)
-                                    val walker = ParseTreeWalker()
-                                    walker.walk(UpdateListener(this, config.columnPrefix), parser.update_statement())
+                                    UpdateListener.parse(
+                                        this,
+                                        config.columnPrefix,
+                                        if (config.truncateUpdateQueryFromWhereClause) {
+                                            truncateFromWhereClause(sqlRedo)
+                                        } else {
+                                            sqlRedo
+                                        }
+                                    )
                                 }
                             }
                         }

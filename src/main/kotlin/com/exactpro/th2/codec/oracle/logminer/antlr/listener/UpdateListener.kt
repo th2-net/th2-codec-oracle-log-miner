@@ -20,19 +20,25 @@ import com.exactpro.th2.codec.oracle.logminer.antlr.PlSqlParser
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.builders.MapBuilder
 import mu.KotlinLogging
 import org.antlr.v4.runtime.ParserRuleContext
+import org.antlr.v4.runtime.tree.ParseTree
 
-// TODO: handle parsing exception
-class UpdateListener(private val builder: MapBuilder<String, Any?>, private val prefix: String) : AbstractListener() {
+internal class UpdateListener private constructor(
+    private val builder: MapBuilder<String, Any?>,
+    private val prefix: String,
+    query: String
+) : AbstractListener(query) {
     private var rowValue: RowValue? = null
 
     override fun enterUpdate_statement(ctx: PlSqlParser.Update_statementContext) {
-        LOGGER.trace { "enterUpdate_statement token index: ${ctx.start.tokenIndex}, text: ${ctx.text}" }
+        checkError(ctx, "enterUpdate_statement")
 
-        expressionHolder.clear()
+        check(expressionHolder.isEmpty()) {
+            "Expression holder must be empty, actual: $expressionHolder"
+        }
     }
 
     override fun enterColumn_based_update_set_clause(ctx: PlSqlParser.Column_based_update_set_clauseContext) {
-        LOGGER.trace { "enterColumn_based_update_set_clause token index: ${ctx.start.tokenIndex}, text: ${ctx.text}" }
+        checkError(ctx, "enterColumn_based_update_set_clause")
         check(rowValue == null) {
             "Incorrect state for parsing column name: previous row value isn't null $rowValue, text: ${ctx.text}"
         }
@@ -40,7 +46,7 @@ class UpdateListener(private val builder: MapBuilder<String, Any?>, private val 
     }
 
     override fun enterColumn_name(ctx: PlSqlParser.Column_nameContext) {
-        LOGGER.trace { "enterColumn_name token index: ${ctx.start.tokenIndex}, text: ${ctx.text}" }
+        checkError(ctx, "enterColumn_name")
         requireNotNull(rowValue) {
             "Incorrect state for parsing column name: previous row value isn't null $rowValue, text: ${ctx.text}"
         }.apply {
@@ -98,7 +104,7 @@ class UpdateListener(private val builder: MapBuilder<String, Any?>, private val 
     }
 
     override fun exitColumn_based_update_set_clause(ctx: PlSqlParser.Column_based_update_set_clauseContext) {
-        LOGGER.trace { "enterColumn_based_update_set_clause token index: ${ctx.start.tokenIndex}, text: ${ctx.text}" }
+        checkError(ctx, "exitColumn_based_update_set_clause")
         requireNotNull(rowValue) {
             "Incorrect state for parsing column name: current row value is null, text: ${ctx.text}"
         }.apply {
@@ -114,7 +120,7 @@ class UpdateListener(private val builder: MapBuilder<String, Any?>, private val 
     }
 
     override fun exitUpdate_statement(ctx: PlSqlParser.Update_statementContext) {
-        LOGGER.trace { "exitUpdate_statement token index: ${ctx.start.tokenIndex}, text: ${ctx.text}" }
+        checkError(ctx, "exitUpdate_statement")
         check(rowValue == null) {
             "Incorrect stage for parsing update statement, uncompleted row value pair: $rowValue, text: ${ctx.text}"
         }
@@ -123,20 +129,28 @@ class UpdateListener(private val builder: MapBuilder<String, Any?>, private val 
         }
     }
 
+    override fun PlSqlParser.parseTree(): ParseTree = update_statement()
+
     /**
      * Use this check to verify stage of parsing
      * SET and WHERE blocks uses the same tokens
      */
     private fun checkStage(ctx: ParserRuleContext, methodName: String): Boolean {
+        checkError(ctx, methodName)
         if (rowValue == null) {
-            LOGGER.trace { "$methodName token index: ${ctx.start.tokenIndex}, text: ${ctx.text}, SKIPPED" }
+            LOGGER.trace { "$methodName, text: ${ctx.text}, SKIPPED" }
             return false
         }
-        LOGGER.trace { "$methodName token index: ${ctx.start.tokenIndex}, text: ${ctx.text}" }
         return true
     }
 
     companion object {
         private val LOGGER = KotlinLogging.logger {}
+
+        fun parse(
+            builder: MapBuilder<String, Any?>,
+            prefix: String,
+            query: String,
+        ) = UpdateListener(builder, prefix, query).parse()
     }
 }

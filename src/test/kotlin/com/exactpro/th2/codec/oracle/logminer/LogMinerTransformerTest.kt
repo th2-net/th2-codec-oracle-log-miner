@@ -18,8 +18,6 @@ package com.exactpro.th2.codec.oracle.logminer
 
 import com.exactpro.th2.codec.api.IReportingContext
 import com.exactpro.th2.codec.oracle.logminer.LogMinerTransformer.Companion.truncateFromWhereClause
-import com.exactpro.th2.codec.oracle.logminer.antlr.PlSqlLexer
-import com.exactpro.th2.codec.oracle.logminer.antlr.PlSqlParser
 import com.exactpro.th2.codec.oracle.logminer.antlr.listener.InsertListener
 import com.exactpro.th2.codec.oracle.logminer.antlr.listener.UpdateListener
 import com.exactpro.th2.codec.oracle.logminer.cfg.LogMinerConfiguration
@@ -31,9 +29,6 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.builders.M
 import com.exactpro.th2.common.utils.message.transport.logId
 import com.exactpro.th2.common.utils.message.transport.toGroup
 import com.github.doyaaaaaken.kotlincsv.dsl.csvReader
-import org.antlr.v4.runtime.CharStreams
-import org.antlr.v4.runtime.CommonTokenStream
-import org.antlr.v4.runtime.tree.ParseTreeWalker
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -157,6 +152,20 @@ class LogMinerTransformerTest {
                 .setId(baseId.copy(subsequence = listOf(2)))
                 .setBody(
                     mapOf(
+                        "OPERATION" to "UPDATE",
+                        "SQL_REDO" to "broken query",
+                        "ROW_ID" to 1,
+                        "TIMESTAMP" to Instant.now().toString(),
+                        "TABLE_NAME" to "test-table",
+                    )
+                )
+                .setType("test-message")
+                .setProtocol("")
+                .build(),
+            ParsedMessage.builder()
+                .setId(baseId.copy(subsequence = listOf(3)))
+                .setBody(
+                    mapOf(
                         "OPERATION" to "broken operation",
                         "SQL_REDO" to """insert into "OWNER"."table"("NAME","TIMESTAMP","DATE","NUMBER","NULL") 
                                         values ('An',TO_TIMESTAMP('12-DEC-23 02.55.01 PM'), TO_DATE('12-DEC-23', 'DD-MON-RR'), 8, NULL);""",
@@ -175,9 +184,9 @@ class LogMinerTransformerTest {
                 MessageGroup.builder().apply { source.forEach(::addMessage) }.build(),
                 reportingContext
             ).messages
-        ).hasSize(2)
+        ).hasSize(3)
             .filterIsInstance<ParsedMessage>().and {
-                hasSize(2)
+                hasSize(3)
                 withElementAt(0) {
                     val message = source[0]
                     get { id }.isEqualTo(message.id)
@@ -186,7 +195,7 @@ class LogMinerTransformerTest {
                     get { protocol }.isEqualTo("[csv,oracle-log-miner]")
                     get { body }.isEqualTo(
                         mapOf(
-                            "content" to """Incorrect stage for parsing insert statement, expected: PARSED_VALUES, actual: BEGIN, text: brokenquery"""
+                            "content" to """Parse problem(s): [line 1:0 mismatched input 'broken' expecting 'INSERT']"""
                         ) + message.body.filterKeys { config.saveColumns.contains(it) }
                     )
                 }
@@ -198,17 +207,30 @@ class LogMinerTransformerTest {
                     get { protocol }.isEqualTo("[csv,oracle-log-miner]")
                     get { body }.isEqualTo(
                         mapOf(
+                            "content" to """Parse problem(s): [line 1:0 missing 'UPDATE' at 'broken', line 1:12 mismatched input '<EOF>' expecting 'SET']"""
+                        ) + message.body.filterKeys { config.saveColumns.contains(it) }
+                    )
+                }
+                withElementAt(2) {
+                    val message = source[2]
+                    get { id }.isEqualTo(message.id)
+                    get { eventId }.isEqualTo(message.eventId)
+                    get { type }.isEqualTo("th2-codec-error")
+                    get { protocol }.isEqualTo("[csv,oracle-log-miner]")
+                    get { body }.isEqualTo(
+                        mapOf(
                             "content" to "Unsupported operation kind 'broken operation'"
                         ) + message.body.filterKeys { config.saveColumns.contains(it) }
                     )
                 }
             }
-        verify(reportingContext).warning(eq("""Message transformation failure, id: ${source[0].id.logId} Incorrect stage for parsing insert statement, expected: PARSED_VALUES, actual: BEGIN, text: brokenquery"""))
-        verify(reportingContext).warning(eq("""Message transformation failure, id: ${source[1].id.logId} Unsupported operation kind 'broken operation'"""))
+        verify(reportingContext).warning(eq("""Message transformation failure, id: ${source[0].id.logId} Parse problem(s): [line 1:0 mismatched input 'broken' expecting 'INSERT']"""))
+        verify(reportingContext).warning(eq("""Message transformation failure, id: ${source[1].id.logId} Parse problem(s): [line 1:0 missing 'UPDATE' at 'broken', line 1:12 mismatched input '<EOF>' expecting 'SET']"""))
+        verify(reportingContext).warning(eq("""Message transformation failure, id: ${source[2].id.logId} Unsupported operation kind 'broken operation'"""))
     }
 
     @Test
-    fun `decode broken row message test`() {
+    fun `decode broken insert query test`() {
         val config = LogMinerConfiguration()
         val codec = LogMinerTransformer(config)
         val source: ParsedMessage =
@@ -237,25 +259,55 @@ class LogMinerTransformerTest {
         assertThrows<IllegalStateException> {
             codec.decode(source.toGroup(), reportingContext)
         }.also {
-            assertEquals(it.message, "Incorrect stage for parsing insert statement, expected: PARSED_VALUES, actual: BEGIN, text: brokenquery")
+            assertEquals(it.message, "Parse problem(s): [line 1:0 mismatched input 'broken' expecting 'INSERT']")
+        }
+    }
+
+    @Test
+    fun `decode broken update query test`() {
+        val config = LogMinerConfiguration()
+        val codec = LogMinerTransformer(config)
+        val source: ParsedMessage =
+            ParsedMessage.builder()
+                .setId(
+                    MessageId.builder()
+                        .setSessionAlias("test-session-alias")
+                        .setDirection(Direction.OUTGOING)
+                        .setTimestamp(Instant.now())
+                        .setSequence(1)
+                        .build()
+                )
+                .setBody(
+                    mapOf(
+                        "OPERATION" to "UPDATE",
+                        "SQL_REDO" to "broken query",
+                        "ROW_ID" to 1,
+                        "TIMESTAMP" to Instant.now().toString(),
+                        "TABLE_NAME" to "test-table",
+                    )
+                )
+                .setType("test-message")
+                .setProtocol("")
+                .build()
+
+        assertThrows<IllegalStateException> {
+            codec.decode(source.toGroup(), reportingContext)
+        }.also {
+            assertEquals(
+                "Parse problem(s): [line 1:0 missing 'UPDATE' at 'broken', line 1:12 mismatched input '<EOF>' expecting 'SET']",
+                it.message
+            )
         }
     }
 
     @Test
     fun `insert parser test`() {
-        val lexer = PlSqlLexer(
-            CharStreams.fromString("""
+        val query = """
                 INSERT INTO "OWNER"."table"("NAME","TIMESTAMP","DATE","NUMBER","FLOAT","NULL","NESTED") 
                 VALUES ('An',TO_TIMESTAMP('12-DEC-23 02.55.01 PM'), TO_DATE('12-DEC-23', 'DD-MON-RR'), 8, 1.1, NULL, TO_TIMESTAMP(TO_TIMESTAMP('12-DEC-23 02.55.01 PM'))); 
-            """.trimIndent()
-            )
-        )
-        val tokens = CommonTokenStream(lexer)
-        val parser = PlSqlParser(tokens)
-        val walker = ParseTreeWalker()
+            """
         val builder = MapBuilder<String, Any?>()
-        val listener = InsertListener(builder, TEST_PREFIX)
-        walker.walk(listener, parser.insert_statement())
+        InsertListener.parse(builder, TEST_PREFIX, query)
 
         expectThat(builder.build()) {
             hasSize(6)
@@ -286,8 +338,7 @@ class LogMinerTransformerTest {
 
     @Test
     fun `update parser test`() {
-        val lexer = PlSqlLexer(
-            CharStreams.fromString("""
+        val query = """
                 UPDATE "OWNER"."table" SET 
                   "NAME" = 'An', 
                   "TIMESTAMP" = TO_TIMESTAMP('12-DEC-23 02.55.01 PM'),
@@ -299,14 +350,8 @@ class LogMinerTransformerTest {
                 WHERE 
                   ROWID = 'test-row-id';
             """.trimIndent()
-            )
-        )
-        val tokens = CommonTokenStream(lexer)
-        val parser = PlSqlParser(tokens)
-        val walker = ParseTreeWalker()
         val builder = MapBuilder<String, Any?>()
-        val listener = UpdateListener(builder, TEST_PREFIX)
-        walker.walk(listener, parser.update_statement())
+        UpdateListener.parse(builder, TEST_PREFIX, query)
 
         expectThat(builder.build()) {
             hasSize(7)

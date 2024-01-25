@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 package com.exactpro.th2.codec.oracle.logminer.antlr.listener
 
 internal class RowValue(

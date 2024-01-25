@@ -16,11 +16,21 @@
 
 package com.exactpro.th2.codec.oracle.logminer.antlr.listener
 
+import com.exactpro.th2.codec.oracle.logminer.antlr.PlSqlLexer
 import com.exactpro.th2.codec.oracle.logminer.antlr.PlSqlParser
 import com.exactpro.th2.codec.oracle.logminer.antlr.PlSqlParserBaseListener
+import mu.KotlinLogging
+import org.antlr.v4.runtime.CharStreams
+import org.antlr.v4.runtime.CommonTokenStream
 import org.antlr.v4.runtime.ParserRuleContext
+import org.antlr.v4.runtime.tree.ParseTree
+import org.antlr.v4.runtime.tree.ParseTreeWalker
 
-abstract class AbstractListener: PlSqlParserBaseListener() {
+abstract class AbstractListener(
+    private val query: String
+): PlSqlParserBaseListener() {
+
+    private val errorListener = SyntaxErrorListener()
 
     internal val expressionHolder: MutableList<Expression> = mutableListOf()
 
@@ -80,6 +90,23 @@ abstract class AbstractListener: PlSqlParserBaseListener() {
         exitFunction(ctx, "string function")
     }
 
+    internal fun checkError(ctx: ParserRuleContext, methodName: String) {
+        LOGGER.trace { "$methodName token index: ${ctx.start.tokenIndex}, text: ${ctx.text}" }
+        if (errorListener.errors.isNotEmpty()) {
+            throw IllegalStateException("Parse problem(s): ${errorListener.errors}")
+        }
+    }
+
+    internal abstract fun PlSqlParser.parseTree(): ParseTree
+
+    internal fun parse() {
+        val lexer = PlSqlLexer(CharStreams.fromString(query))
+        val tokens = CommonTokenStream(lexer)
+        val parser = PlSqlParser(tokens).apply { addErrorListener(errorListener) }
+        val walker = ParseTreeWalker()
+        walker.walk(this, parser.parseTree())
+    }
+
     internal fun handle(ctx: PlSqlParser.Unary_expressionContext): Expression {
         val subExpressions: List<Expression> = expressionHolder.removeLastWhile {
             !(it.tokenIndex == ctx.start.tokenIndex && it is UnaryExpression)
@@ -127,6 +154,8 @@ abstract class AbstractListener: PlSqlParserBaseListener() {
     }
 
     companion object {
+        private val LOGGER = KotlinLogging.logger {}
+
         @JvmStatic
         protected inline fun <T> MutableList<T>.removeLastWhile(predicate: (T) -> Boolean): List<T> {
             if (isEmpty())
