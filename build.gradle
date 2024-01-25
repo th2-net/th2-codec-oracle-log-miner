@@ -63,7 +63,6 @@ jmh {
 tasks.withType(KotlinCompile).configureEach {
     dependsOn(tasks.withType(AntlrTask))
 }
-kapt
 
 tasks.withType(JavaCompile).configureEach {
     dependsOn(tasks.withType(AntlrTask))

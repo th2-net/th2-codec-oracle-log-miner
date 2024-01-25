@@ -33,7 +33,6 @@ import mu.KotlinLogging
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
 import org.antlr.v4.runtime.ParserRuleContext
-import org.antlr.v4.runtime.tree.ErrorNode
 import org.antlr.v4.runtime.tree.ParseTreeWalker
 import java.util.LinkedList
 import java.util.Queue
@@ -142,10 +141,6 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
         private var stage = Stage.BEGIN
         private val expressionHolder: MutableList<Expression> = mutableListOf()
 
-        override fun visitErrorNode(node: ErrorNode) {
-            super.visitErrorNode(node)
-        }
-
         override fun enterInsert_statement(ctx: PlSqlParser.Insert_statementContext) {
             LOGGER.trace { "enterInsert_statement token index: ${ctx.start.tokenIndex}, text: ${ctx.text}" }
 
@@ -202,9 +197,9 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
             }
 
             when {
-                ctx.NULL_() != null -> expressionHolder.last().apply(null)
+                ctx.NULL_() != null -> expressionHolder.last().append(null)
                 ctx.numeric() != null -> {
-                    expressionHolder.last().apply(
+                    expressionHolder.last().append(
                         when {
                             ctx.numeric().UNSIGNED_INTEGER() != null -> ctx.text.toLong()
                             else -> ctx.text.toDouble()
@@ -212,7 +207,7 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                     )
                 }
                 ctx.quoted_string().isNotEmpty() -> { /* do nothing because this case is handled separate */ }
-                else -> expressionHolder.last().apply(ctx.text)
+                else -> expressionHolder.last().append(ctx.text)
             }
         }
 
@@ -222,7 +217,7 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                 "Incorrect stage for parsing values clause, expected: ${Stage.PARSING_VALUES}, actual: $stage, text: ${ctx.text}"
             }
 
-            expressionHolder.last().apply(ctx.text.removeSurrounding("'"))
+            expressionHolder.last().append(ctx.text.removeSurrounding("'"))
         }
 
         override fun enterOther_function(ctx: PlSqlParser.Other_functionContext) {
@@ -276,7 +271,7 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                 "Internal problem during parse $expressionName expression ${ctx.text}"
             }
             expression.complete()
-            expressionHolder.last().apply(expression.value)
+            expressionHolder.last().append(expression.value)
         }
 
         override fun exitUnary_expression(ctx: PlSqlParser.Unary_expressionContext) {
@@ -303,7 +298,7 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                     }
 
                     1 -> {
-                        expression.apply(subExpressions.single().value)
+                        expression.append(subExpressions.single().value)
                         expression.complete()
                     }
 
@@ -327,7 +322,7 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                     expressionHolder.clear()
                     LOGGER.trace { "Handled '$column' to '$value' pair" }
                 }
-                else -> expressionHolder.last().apply(expression.value)
+                else -> expressionHolder.last().append(expression.value)
             }
         }
 
@@ -370,10 +365,6 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
         private val expressionHolder: MutableList<Expression> = mutableListOf()
         private var rowValue: RowValue? = null
 
-        override fun visitErrorNode(node: ErrorNode) {
-            super.visitErrorNode(node)
-        }
-
         override fun enterUpdate_statement(ctx: PlSqlParser.Update_statementContext) {
             LOGGER.trace { "enterUpdate_statement token index: ${ctx.start.tokenIndex}, text: ${ctx.text}" }
 
@@ -407,9 +398,9 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
             if (!checkStage(ctx, "enterConstant")) return
 
             when {
-                ctx.NULL_() != null -> expressionHolder.last().apply(null)
+                ctx.NULL_() != null -> expressionHolder.last().append(null)
                 ctx.numeric() != null -> {
-                    expressionHolder.last().apply(
+                    expressionHolder.last().append(
                         when {
                             ctx.numeric().UNSIGNED_INTEGER() != null -> ctx.text.toLong()
                             else -> ctx.text.toDouble()
@@ -417,14 +408,14 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                     )
                 }
                 ctx.quoted_string().isNotEmpty() -> { /* do nothing because this case is handled separate */ }
-                else -> expressionHolder.last().apply(ctx.text)
+                else -> expressionHolder.last().append(ctx.text)
             }
         }
 
         override fun enterQuoted_string(ctx: PlSqlParser.Quoted_stringContext) {
             if (!checkStage(ctx, "enterQuoted_string")) return
 
-            expressionHolder.last().apply(ctx.text.removeSurrounding("'"))
+            expressionHolder.last().append(ctx.text.removeSurrounding("'"))
         }
 
         override fun enterOther_function(ctx: PlSqlParser.Other_functionContext) {
@@ -466,7 +457,7 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                 "Internal problem during parse $expressionName expression ${ctx.text}"
             }
             expression.complete()
-            expressionHolder.last().apply(expression.value)
+            expressionHolder.last().append(expression.value)
         }
 
         override fun exitUnary_expression(ctx: PlSqlParser.Unary_expressionContext) {
@@ -491,7 +482,7 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                     }
 
                     1 -> {
-                        expression.apply(subExpressions.single().value)
+                        expression.append(subExpressions.single().value)
                         expression.complete()
                     }
 
@@ -508,7 +499,7 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                     rowValue?.value = expression.value
                     expressionHolder.clear()
                 }
-                else -> expressionHolder.last().apply(expression.value)
+                else -> expressionHolder.last().append(expression.value)
             }
         }
 
@@ -597,7 +588,7 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                     iterator.next()
                     val expectedSize = size - iterator.nextIndex()
                     if (expectedSize == 0) return emptyList()
-                    return ArrayList<T>(expectedSize).apply {
+                    return buildList(expectedSize) {
                         while (iterator.hasNext()) {
                             add(iterator.next())
                             iterator.remove()
@@ -605,15 +596,15 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                     }
                 }
             }
-            return toList()
+            return this
         }
 
-        private interface Expression {
+        private sealed interface Expression {
             val value: Any?
             val tokenIndex: Int
             val isCompleted: Boolean
 
-            fun apply(value: Any?)
+            fun append(value: Any?)
             fun complete()
         }
 
@@ -629,7 +620,7 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
             private var _value: Any? = null
             override var isCompleted = false
 
-            override fun apply(value: Any?) {
+            override fun append(value: Any?) {
                 check(!isCompleted) {
                     "${javaClass.simpleName} expression $tokenIndex can't be completed twice, value for complete: $value, actual value: $_value"
                 }
@@ -666,7 +657,7 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
             )
             private val list: MutableList<Any?> by lazy { mutableListOf() }
 
-            override fun apply(value: Any?) {
+            override fun append(value: Any?) {
                 check(!isCompleted) {
                     "${javaClass.simpleName} $tokenIndex is already completed, value: $value, actual value: $_value"
                 }
