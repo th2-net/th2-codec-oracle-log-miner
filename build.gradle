@@ -54,18 +54,25 @@ configurations {
     }
 }
 
+java {
+    withSourcesJar()
+}
+
 jmh {
     warmupIterations = 1
     iterations = 3
     fork = 2
 }
 
-tasks.withType(KotlinCompile).configureEach {
-    dependsOn(tasks.withType(AntlrTask))
+generateGrammarSource {
+    arguments += ["-package", "com.exactpro.th2.codec.oracle.logminer.antlr"]
+    outputDirectory = file("$outputDirectory/com/exactpro/th2/codec/oracle/logminer/antlr")
 }
+generateTestGrammarSource.enabled(false)
 
-tasks.withType(JavaCompile).configureEach {
-    dependsOn(tasks.withType(AntlrTask))
+sourcesJar.dependsOn.add('generateGrammarSource')
+tasks.withType(KotlinCompile).configureEach {
+    dependsOn.add('generateGrammarSource')
 }
 
 clean.doLast {

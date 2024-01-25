@@ -16,10 +16,12 @@
 
 package com.exactpro.th2.codec.oracle.logminer
 
-import PlSqlLexer
-import PlSqlParser
 import com.exactpro.th2.codec.api.IReportingContext
 import com.exactpro.th2.codec.oracle.logminer.LogMinerTransformer.Companion.truncateFromWhereClause
+import com.exactpro.th2.codec.oracle.logminer.antlr.PlSqlLexer
+import com.exactpro.th2.codec.oracle.logminer.antlr.PlSqlParser
+import com.exactpro.th2.codec.oracle.logminer.antlr.listener.InsertListener
+import com.exactpro.th2.codec.oracle.logminer.antlr.listener.UpdateListener
 import com.exactpro.th2.codec.oracle.logminer.cfg.LogMinerConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
@@ -252,7 +254,7 @@ class LogMinerTransformerTest {
         val parser = PlSqlParser(tokens)
         val walker = ParseTreeWalker()
         val builder = MapBuilder<String, Any?>()
-        val listener = LogMinerTransformer.InsertListener(builder, TEST_PREFIX)
+        val listener = InsertListener(builder, TEST_PREFIX)
         walker.walk(listener, parser.insert_statement())
 
         expectThat(builder.build()) {
@@ -303,7 +305,7 @@ class LogMinerTransformerTest {
         val parser = PlSqlParser(tokens)
         val walker = ParseTreeWalker()
         val builder = MapBuilder<String, Any?>()
-        val listener = LogMinerTransformer.UpdateListener(builder, TEST_PREFIX)
+        val listener = UpdateListener(builder, TEST_PREFIX)
         walker.walk(listener, parser.update_statement())
 
         expectThat(builder.build()) {

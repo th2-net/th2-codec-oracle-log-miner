@@ -1,4 +1,7 @@
-package org.antlr.v4.runtime
+package com.exactpro.th2.codec.oracle.logminer.antlr
+
+import org.antlr.v4.runtime.CharStream
+import org.antlr.v4.runtime.Lexer
 
 abstract class PlSqlLexerBase(input: CharStream?) : Lexer(input) {
     var self: PlSqlLexerBase = this

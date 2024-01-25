@@ -16,9 +16,11 @@
 
 package com.exactpro.th2.codec.oracle.logminer
 
-import PlSqlLexer
-import PlSqlParser
 import com.exactpro.th2.codec.api.IReportingContext
+import com.exactpro.th2.codec.oracle.logminer.antlr.PlSqlLexer
+import com.exactpro.th2.codec.oracle.logminer.antlr.PlSqlParser
+import com.exactpro.th2.codec.oracle.logminer.antlr.listener.InsertListener
+import com.exactpro.th2.codec.oracle.logminer.antlr.listener.UpdateListener
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.builders.MapBuilder
 import net.sf.jsqlparser.expression.Expression
 import net.sf.jsqlparser.expression.Function
@@ -290,7 +292,7 @@ open class LogMinerTransformerBenchmark {
                 val tokens = CommonTokenStream(lexer)
                 val parser = PlSqlParser(tokens)
                 val walker = ParseTreeWalker()
-                walker.walk(LogMinerTransformer.InsertListener(this, ""), parser.insert_statement())
+                walker.walk(InsertListener(this, ""), parser.insert_statement())
             }
         )
     }
@@ -305,7 +307,7 @@ open class LogMinerTransformerBenchmark {
                 val tokens = CommonTokenStream(lexer)
                 val parser = PlSqlParser(tokens)
                 val walker = ParseTreeWalker()
-                walker.walk(LogMinerTransformer.UpdateListener(this, ""), parser.update_statement())
+                walker.walk(UpdateListener(this, ""), parser.update_statement())
             }
         )
     }
