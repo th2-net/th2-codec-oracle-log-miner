@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 buildscript {
     repositories {
         gradlePluginPortal()
@@ -10,10 +12,15 @@ buildscript {
     }
 }
 
+plugins {
+    id 'me.champeau.jmh' version '0.7.2'
+}
+
 apply plugin: "com.exactpro.th2.common-conventions"
 apply plugin: "com.exactpro.th2.docker-conventions"
 
 apply plugin: 'kotlin-kapt'
+apply plugin: 'antlr'
 
 dependencies {
     api platform("com.exactpro.th2:bom:4.5.0")
@@ -22,11 +29,52 @@ dependencies {
     implementation "com.exactpro.th2:codec:5.4.1-dev"
 
     implementation "com.fasterxml.jackson.core:jackson-databind"
-    implementation 'com.github.jsqlparser:jsqlparser:4.7'
+
+    // https://mvnrepository.com/artifact/org.antlr/antlr4
+    antlr 'org.antlr:antlr4:4.13.1'
+    implementation 'org.antlr:antlr4-runtime:4.13.1'
+
+    jmh 'org.openjdk.jmh:jmh-core:0.9'
+    jmh 'org.openjdk.jmh:jmh-generator-annprocess:0.9'
+    jmh 'org.openjdk.jmh:jmh-generator-bytecode:0.9'
+    jmh 'com.github.jsqlparser:jsqlparser:4.7'
 
     compileOnly "com.google.auto.service:auto-service-annotations:1.1.1"
     annotationProcessor "com.google.auto.service:auto-service:1.1.1"
     kapt "com.google.auto.service:auto-service:1.1.1"
 
     testImplementation "com.github.doyaaaaaken:kotlin-csv-jvm:1.9.2"
+}
+
+configurations {
+    compile {
+        // Undo extendsFrom relationship between the 'antlr' configuration and the 'api' configuration
+        // See https://github.com/gradle/gradle/blob/master/subprojects/antlr/src/main/java/org/gradle/api/plugins/antlr/AntlrPlugin.java#L60
+        extendsFrom = extendsFrom.findAll { it != configurations.antlr }
+    }
+}
+
+java {
+    withSourcesJar()
+}
+
+jmh {
+    warmupIterations = 1
+    iterations = 3
+    fork = 2
+}
+
+generateGrammarSource {
+    arguments += ["-package", "com.exactpro.th2.codec.oracle.logminer.antlr"]
+    outputDirectory = file("$outputDirectory/com/exactpro/th2/codec/oracle/logminer/antlr")
+}
+generateTestGrammarSource.enabled(false)
+
+sourcesJar.dependsOn.add('generateGrammarSource')
+tasks.withType(KotlinCompile).configureEach {
+    dependsOn.add('generateGrammarSource')
+}
+
+clean.doLast {
+    file('src/main/gen').deleteDir()
 }

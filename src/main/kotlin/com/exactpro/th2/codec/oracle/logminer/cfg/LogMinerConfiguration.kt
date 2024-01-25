@@ -29,4 +29,8 @@ class LogMinerConfiguration : IPipelineCodecSettings {
     @JsonProperty("save-columns")
     @JsonPropertyDescription("Codec saves: extracted columns and this set")
     var saveColumns: Set<String> = REQUIRED_COLUMNS
+
+    @JsonProperty("truncate-update-query-from-where-clause")
+    @JsonPropertyDescription("Codec truncates the tail of UPDATE query starting from the WHERE clause")
+    var truncateUpdateQueryFromWhereClause: Boolean = true
 }
