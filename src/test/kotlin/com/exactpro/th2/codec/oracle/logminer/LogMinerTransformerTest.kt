@@ -207,7 +207,7 @@ class LogMinerTransformerTest {
                     get { protocol }.isEqualTo("[csv,oracle-log-miner]")
                     get { body }.isEqualTo(
                         mapOf(
-                            "content" to """Parse problem(s): [line 1:0 missing 'UPDATE' at 'broken', line 1:12 mismatched input '<EOF>' expecting 'SET']"""
+                            "content" to """Parse problem(s): [line 1:0 missing 'UPDATE' at 'broken', line 1:7 missing '.' at 'query', line 1:12 mismatched input '<EOF>' expecting 'SET']"""
                         ) + message.body.filterKeys { config.saveColumns.contains(it) }
                     )
                 }
@@ -225,7 +225,7 @@ class LogMinerTransformerTest {
                 }
             }
         verify(reportingContext).warning(eq("""Message transformation failure, id: ${source[0].id.logId} Parse problem(s): [line 1:0 mismatched input 'broken' expecting 'INSERT']"""))
-        verify(reportingContext).warning(eq("""Message transformation failure, id: ${source[1].id.logId} Parse problem(s): [line 1:0 missing 'UPDATE' at 'broken', line 1:12 mismatched input '<EOF>' expecting 'SET']"""))
+        verify(reportingContext).warning(eq("""Message transformation failure, id: ${source[1].id.logId} Parse problem(s): [line 1:0 missing 'UPDATE' at 'broken', line 1:7 missing '.' at 'query', line 1:12 mismatched input '<EOF>' expecting 'SET']"""))
         verify(reportingContext).warning(eq("""Message transformation failure, id: ${source[2].id.logId} Unsupported operation kind 'broken operation'"""))
     }
 
@@ -294,7 +294,7 @@ class LogMinerTransformerTest {
             codec.decode(source.toGroup(), reportingContext)
         }.also {
             assertEquals(
-                "Parse problem(s): [line 1:0 missing 'UPDATE' at 'broken', line 1:12 mismatched input '<EOF>' expecting 'SET']",
+                "Parse problem(s): [line 1:0 missing 'UPDATE' at 'broken', line 1:7 missing '.' at 'query', line 1:12 mismatched input '<EOF>' expecting 'SET']",
                 it.message
             )
         }
@@ -303,9 +303,9 @@ class LogMinerTransformerTest {
     @Test
     fun `insert parser test`() {
         val query = """
-                INSERT INTO "OWNER"."table"("NAME","TIMESTAMP","DATE","NUMBER","FLOAT","NULL","NESTED") 
-                VALUES ('An',TO_TIMESTAMP('12-DEC-23 02.55.01 PM'), TO_DATE('12-DEC-23', 'DD-MON-RR'), 8, 1.1, NULL, TO_TIMESTAMP(TO_TIMESTAMP('12-DEC-23 02.55.01 PM'))); 
-            """
+                INSERT INTO "OWNER"."table"("NAME","TIMESTAMP","DATE","NUMBER","FLOAT","NULL","DATA") 
+                VALUES ('An',TO_TIMESTAMP('12-DEC-23 02.55.01 PM'), TO_DATE('12-DEC-23', 'DD-MON-RR'), 8, 1.1, NULL, HEXTORAW('746573742d64617461'));
+                """
         val builder = MapBuilder<String, Any?>()
         InsertListener.parse(builder, TEST_PREFIX, query)
 
@@ -324,15 +324,7 @@ class LogMinerTransformerTest {
                 get { get("function") }.isEqualTo("TO_DATE")
                 get { get("parameters") }.isEqualTo(listOf("12-DEC-23", "DD-MON-RR"))
             }
-            get { get("${TEST_PREFIX}NESTED") }.isA<Map<String, Any>>().and {
-                hasSize(2)
-                get { get("function") }.isEqualTo("TO_TIMESTAMP")
-                get { get("parameters") }.isA<List<Map<String, Any>>>().single().and {
-                    hasSize(2)
-                    get { get("function") }.isEqualTo("TO_TIMESTAMP")
-                    get { get("parameters") }.isEqualTo(listOf("12-DEC-23 02.55.01 PM"))
-                }
-            }
+            get { get("${TEST_PREFIX}DATA") }.isEqualTo("746573742d64617461")
         }
     }
 
@@ -346,7 +338,7 @@ class LogMinerTransformerTest {
                   "NUMBER" = 8,
                   "FLOAT" = 1.1,
                   "NULL" = NULL,
-                  "NESTED" = TO_TIMESTAMP(TO_TIMESTAMP('12-DEC-23 02.55.01 PM'))
+                  "DATA" = HEXTORAW('746573742d64617461')
                 WHERE 
                   ROWID = 'test-row-id';
             """.trimIndent()
@@ -369,15 +361,7 @@ class LogMinerTransformerTest {
                 get { get("function") }.isEqualTo("TO_DATE")
                 get { get("parameters") }.isEqualTo(listOf("12-DEC-23", "DD-MON-RR"))
             }
-            get { get("${TEST_PREFIX}NESTED") }.isA<Map<String, Any>>().and {
-                hasSize(2)
-                get { get("function") }.isEqualTo("TO_TIMESTAMP")
-                get { get("parameters") }.isA<List<Map<String, Any>>>().single().and {
-                    hasSize(2)
-                    get { get("function") }.isEqualTo("TO_TIMESTAMP")
-                    get { get("parameters") }.isEqualTo(listOf("12-DEC-23 02.55.01 PM"))
-                }
-            }
+            get { get("${TEST_PREFIX}DATA") }.isEqualTo("746573742d64617461")
         }
     }
 

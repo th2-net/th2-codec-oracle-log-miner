@@ -21,6 +21,26 @@
 // $antlr-format alignTrailingComments true, columnLimit 150, minEmptyLines 1, maxEmptyLinesToKeep 1, reflowComments false, useTab false
 // $antlr-format allowShortRulesOnASingleLine false, allowShortBlocksOnASingleLine true, alignSemicolons hanging, alignColons hanging
 
+/*
+ * Copyright 2024 Exactpro (Exactpro Systems Limited)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+ /*
+ This file hac been changed to improve performance of parsing queries from Oracle redo log by Exactpro
+ */
+
 parser grammar PlSqlParser;
 
 options {
@@ -6028,8 +6048,14 @@ for_update_options
     | WAIT expression
     ;
 
+/* the rule below is changed to improve parse performance of Oracle redo log queries
 update_statement
     : UPDATE general_table_ref update_set_clause where_clause? static_returning_clause? error_logging_clause?
+    ;
+*/
+
+update_statement
+    : UPDATE general_table_ref update_set_clause
     ;
 
 // Update Specific Clauses
@@ -6041,9 +6067,15 @@ update_set_clause
     )
     ;
 
+/* the rule below is changed to improve parse performance of Oracle redo log queries
 column_based_update_set_clause
     : column_name '=' expression
     | paren_column_list '=' subquery
+    ;
+*/
+
+column_based_update_set_clause
+    : column_name '=' expression
     ;
 
 delete_statement
@@ -6142,8 +6174,14 @@ lock_mode
 
 // Common DDL Clauses
 
+/* the rule below is changed to improve parse performance of Oracle redo log queries
 general_table_ref
     : (dml_table_expression_clause | ONLY '(' dml_table_expression_clause ')') table_alias?
+    ;
+*/
+
+general_table_ref
+    : dml_table_expression_clause
     ;
 
 static_returning_clause
@@ -6162,11 +6200,17 @@ error_logging_reject_part
     : REJECT LIMIT (UNLIMITED | expression)
     ;
 
+/* the rule below is changed to improve parse performance of Oracle redo log queries
 dml_table_expression_clause
     : table_collection_expression
     | '(' select_statement subquery_restriction_clause? ')'
     | tableview_name sample_clause?
     | json_table_clause (AS identifier)?
+    ;
+*/
+
+dml_table_expression_clause
+    : tableview_name
     ;
 
 table_collection_expression
@@ -6201,23 +6245,41 @@ expressions
     : expression (',' expression)*
     ;
 
+/* the rule below is changed to improve parse performance of Oracle redo log queries
 expression
     : cursor_expression
     | logical_expression
+    ;
+*/
+
+expression
+    : logical_expression
     ;
 
 cursor_expression
     : CURSOR '(' subquery ')'
     ;
 
+/* the rule below is changed to improve parse performance of Oracle redo log queries
 logical_expression
     : unary_logical_expression
     | logical_expression AND logical_expression
     | logical_expression OR logical_expression
     ;
+*/
 
+logical_expression
+    : unary_logical_expression
+    ;
+
+/* the rule below is changed to improve parse performance of Oracle redo log queries
 unary_logical_expression
     : NOT? multiset_expression unary_logical_operation?
+    ;
+*/
+
+unary_logical_expression
+    : multiset_expression
     ;
 
 unary_logical_operation
@@ -6236,15 +6298,28 @@ logical_operation
     )
     ;
 
+/* the rule below is changed to improve parse performance of Oracle redo log queries
 multiset_expression
     : relational_expression (multiset_type = (MEMBER | SUBMULTISET) OF? concatenation)?
     ;
+*/
 
+multiset_expression
+    : relational_expression
+    ;
+
+/* the rule below is changed to improve parse performance of Oracle redo log queries
 relational_expression
     : relational_expression relational_operator relational_expression
     | compound_expression
     ;
+*/
 
+relational_expression
+    : compound_expression
+    ;
+
+/* the rule below is changed to improve parse performance of Oracle redo log queries
 compound_expression
     : concatenation (
         NOT? (
@@ -6253,6 +6328,11 @@ compound_expression
             | like_type = (LIKE | LIKEC | LIKE2 | LIKE4) concatenation (ESCAPE concatenation)?
         )
     )?
+    ;
+*/
+
+compound_expression
+    : concatenation
     ;
 
 relational_operator
@@ -6273,6 +6353,7 @@ between_elements
     : concatenation AND concatenation
     ;
 
+/* the rule below is changed to improve parse performance of Oracle redo log queries
 concatenation
     : model_expression (AT (LOCAL | TIME ZONE concatenation) | interval_expression)? (
         ON OVERFLOW (TRUNCATE | ERROR)
@@ -6282,6 +6363,11 @@ concatenation
     | concatenation op = (PLUS_SIGN | MINUS_SIGN) concatenation
     | concatenation BAR BAR concatenation
     ;
+*/
+
+concatenation
+    : model_expression
+    ;
 
 interval_expression
     : DAY ('(' concatenation ')')? TO SECOND ('(' concatenation ')')?
@@ -6289,8 +6375,14 @@ interval_expression
     | concatenation (SECOND | DAY | MONTH | YEAR)
     ;
 
+/* the rule below is changed to improve parse performance of Oracle redo log queries
 model_expression
     : unary_expression ('[' model_expression_element ']')?
+    ;
+*/
+
+model_expression
+    : unary_expression
     ;
 
 model_expression_element
@@ -6313,18 +6405,24 @@ multi_column_for_loop
     : FOR paren_column_list IN '(' (subquery | '(' expressions? ')') ')'
     ;
 
+// the rule below is changed to improve parse performance of Oracle redo log queries
+//unary_expression
+//    : ('-' | '+') unary_expression
+//    | PRIOR unary_expression
+//    | CONNECT_BY_ROOT unary_expression
+//    | /*TODO {input.LT(1).getText().equalsIgnoreCase("new") && !input.LT(2).getText().equals(".")}?*/ NEW unary_expression
+//    | DISTINCT unary_expression
+//    | ALL unary_expression
+//    | /*TODO{(input.LA(1) == CASE || input.LA(2) == CASE)}?*/ case_statement /*[false]*/
+//    | quantified_expression
+//    | standard_function
+//    | atom
+//    | implicit_cursor_expression
+//    ;
+
 unary_expression
-    : ('-' | '+') unary_expression
-    | PRIOR unary_expression
-    | CONNECT_BY_ROOT unary_expression
-    | /*TODO {input.LT(1).getText().equalsIgnoreCase("new") && !input.LT(2).getText().equals(".")}?*/ NEW unary_expression
-    | DISTINCT unary_expression
-    | ALL unary_expression
-    | /*TODO{(input.LA(1) == CASE || input.LA(2) == CASE)}?*/ case_statement /*[false]*/
-    | quantified_expression
-    | standard_function
+    : standard_function
     | atom
-    | implicit_cursor_expression
     ;
 
 // https://docs.oracle.com/en/database/oracle/oracle-database/21/lnpls/plsql-optimization-and-tuning.html#GUID-DAF46F06-EF3F-4B1A-A518-5238B80C69FA
@@ -6367,6 +6465,7 @@ case_else_part
     : ELSE (/*{$case_statement::isStatement}?*/ seq_of_statements | expression)
     ;
 
+/* the rule below is changed to improve parse performance of Oracle redo log queries
 atom
     : bind_variable
     | constant
@@ -6374,11 +6473,18 @@ atom
     | '(' subquery ')' subquery_operation_part*
     | '(' expressions ')'
     ;
+*/
+
+atom
+    : constant
+    | general_element
+    ;
 
 quantified_expression
     : (SOME | EXISTS | ALL | ANY) ('(' select_only_statement ')' | '(' expression (',' expression)*')')
     ;
 
+/* the rule below is changed to improve parse performance of Oracle redo log queries
 string_function
     : SUBSTR '(' expression ',' expression (',' expression)? ')'
     | TO_CHAR '(' (table_element | standard_function | expression) (',' quoted_string)? (
@@ -6392,11 +6498,23 @@ string_function
         DEFAULT concatenation ON CONVERSION ERROR
     )? (',' quoted_string (',' quoted_string)?)? ')'
     ;
+*/
 
+string_function
+    : TO_DATE '(' quoted_string ',' quoted_string ')'
+    ;
+
+/* the rule below is changed to improve parse performance of Oracle redo log queries
 standard_function
     : string_function
     | numeric_function_wrapper
     | json_function
+    | other_function
+    ;
+*/
+
+standard_function
+    : string_function
     | other_function
     ;
 
@@ -6521,9 +6639,17 @@ json_value_on_mismatch_clause
     : (IGNORE | ERROR | NULL_) ON MISMATCH ('(' MISSING DATA | EXTRA DATA | TYPE ERROR ')')?
     ;
 
+/* the rule below is changed to improve parse performance of Oracle redo log queries
 literal
     : CHAR_STRING
     | string_function
+    | numeric
+    | MAXVALUE
+    ;
+*/
+
+literal
+    : CHAR_STRING
     | numeric
     | MAXVALUE
     ;
@@ -6546,54 +6672,59 @@ listagg_overflow_clause
     : ON OVERFLOW (ERROR | TRUNCATE) CHAR_STRING? ((WITH | WITHOUT) COUNT)?
     ;
 
+// the rule below is changed to improve parse performance of Oracle redo log queries
+//other_function
+//    : over_clause_keyword function_argument_analytic over_clause?
+//    | /*TODO stantard_function_enabling_using*/ regular_id function_argument_modeling using_clause?
+//    | COUNT '(' (ASTERISK | (DISTINCT | UNIQUE | ALL)? concatenation) ')' over_clause?
+//    | (CAST | XMLCAST) '(' (MULTISET '(' subquery ')' | concatenation) AS type_spec (
+//        DEFAULT concatenation ON CONVERSION ERROR
+//    )? (',' quoted_string (',' quoted_string)?)? ')'
+//    | COALESCE '(' table_element (',' (numeric | quoted_string))? ')'
+//    | COLLECT '(' (DISTINCT | UNIQUE)? concatenation collect_order_by_part? ')'
+//    | within_or_over_clause_keyword function_argument within_or_over_part+
+//    | LISTAGG '(' (ALL | DISTINCT | UNIQUE)? argument (',' CHAR_STRING)? listagg_overflow_clause? ')' (
+//        WITHIN GROUP '(' order_by_clause ')'
+//    )? over_clause?
+//    | cursor_name (PERCENT_ISOPEN | PERCENT_FOUND | PERCENT_NOTFOUND | PERCENT_ROWCOUNT)
+//    | DECOMPOSE '(' concatenation (CANONICAL | COMPATIBILITY)? ')'
+//    | EXTRACT '(' regular_id FROM concatenation ')'
+//    | (FIRST_VALUE | LAST_VALUE) function_argument_analytic respect_or_ignore_nulls? over_clause
+//    | standard_prediction_function_keyword '(' expressions cost_matrix_clause? using_clause? ')'
+//    | (TO_BINARY_DOUBLE | TO_BINARY_FLOAT | TO_NUMBER | TO_TIMESTAMP | TO_TIMESTAMP_TZ) '(' concatenation (
+//        DEFAULT concatenation ON CONVERSION ERROR
+//    )? (',' quoted_string (',' quoted_string)?)? ')'
+//    | (TO_DSINTERVAL | TO_YMINTERVAL) '(' concatenation (DEFAULT concatenation ON CONVERSION ERROR)? ')'
+//    | TRANSLATE '(' expression (USING (CHAR_CS | NCHAR_CS))? (',' expression)* ')'
+//    | TREAT '(' expression AS REF? type_spec ')'
+//    | TRIM '(' ((LEADING | TRAILING | BOTH)? quoted_string? FROM)? concatenation ')'
+//    | VALIDATE_CONVERSION '(' concatenation AS type_spec (',' quoted_string (',' quoted_string)?)? ')'
+//    | XMLAGG '(' expression order_by_clause? ')' ('.' general_element_part)*
+//    | (XMLCOLATTVAL | XMLFOREST) '(' xml_multiuse_expression_element (
+//        ',' xml_multiuse_expression_element
+//    )* ')' ('.' general_element_part)*
+//    | XMLELEMENT '(' (ENTITYESCAPING | NOENTITYESCAPING)? (NAME | EVALNAME)? expression (
+//        /*TODO{input.LT(2).getText().equalsIgnoreCase("xmlattributes")}?*/ ',' xml_attributes_clause
+//    )? (',' expression column_alias?)* ')' ('.' general_element_part)*
+//    | XMLEXISTS '(' expression xml_passing_clause? ')'
+//    | XMLPARSE '(' (DOCUMENT | CONTENT) concatenation WELLFORMED? ')' ('.' general_element_part)*
+//    | XMLPI '(' (NAME identifier | EVALNAME concatenation) (',' concatenation)? ')' (
+//        '.' general_element_part
+//    )*
+//    | XMLQUERY '(' concatenation xml_passing_clause? RETURNING CONTENT (NULL_ ON EMPTY_)? ')' (
+//        '.' general_element_part
+//    )*
+//    | XMLROOT '(' concatenation (',' xmlroot_param_version_part)? (
+//        ',' xmlroot_param_standalone_part
+//    )? ')' ('.' general_element_part)*
+//    | XMLSERIALIZE '(' (DOCUMENT | CONTENT) concatenation (AS type_spec)? xmlserialize_param_enconding_part? xmlserialize_param_version_part?
+//        xmlserialize_param_ident_part? ((HIDE | SHOW) DEFAULTS)? ')' ('.' general_element_part)?
+//    | TIME CHAR_STRING
+//    | xmltable
+//    ;
+
 other_function
-    : over_clause_keyword function_argument_analytic over_clause?
-    | /*TODO stantard_function_enabling_using*/ regular_id function_argument_modeling using_clause?
-    | COUNT '(' (ASTERISK | (DISTINCT | UNIQUE | ALL)? concatenation) ')' over_clause?
-    | (CAST | XMLCAST) '(' (MULTISET '(' subquery ')' | concatenation) AS type_spec (
-        DEFAULT concatenation ON CONVERSION ERROR
-    )? (',' quoted_string (',' quoted_string)?)? ')'
-    | COALESCE '(' table_element (',' (numeric | quoted_string))? ')'
-    | COLLECT '(' (DISTINCT | UNIQUE)? concatenation collect_order_by_part? ')'
-    | within_or_over_clause_keyword function_argument within_or_over_part+
-    | LISTAGG '(' (ALL | DISTINCT | UNIQUE)? argument (',' CHAR_STRING)? listagg_overflow_clause? ')' (
-        WITHIN GROUP '(' order_by_clause ')'
-    )? over_clause?
-    | cursor_name (PERCENT_ISOPEN | PERCENT_FOUND | PERCENT_NOTFOUND | PERCENT_ROWCOUNT)
-    | DECOMPOSE '(' concatenation (CANONICAL | COMPATIBILITY)? ')'
-    | EXTRACT '(' regular_id FROM concatenation ')'
-    | (FIRST_VALUE | LAST_VALUE) function_argument_analytic respect_or_ignore_nulls? over_clause
-    | standard_prediction_function_keyword '(' expressions cost_matrix_clause? using_clause? ')'
-    | (TO_BINARY_DOUBLE | TO_BINARY_FLOAT | TO_NUMBER | TO_TIMESTAMP | TO_TIMESTAMP_TZ) '(' concatenation (
-        DEFAULT concatenation ON CONVERSION ERROR
-    )? (',' quoted_string (',' quoted_string)?)? ')'
-    | (TO_DSINTERVAL | TO_YMINTERVAL) '(' concatenation (DEFAULT concatenation ON CONVERSION ERROR)? ')'
-    | TRANSLATE '(' expression (USING (CHAR_CS | NCHAR_CS))? (',' expression)* ')'
-    | TREAT '(' expression AS REF? type_spec ')'
-    | TRIM '(' ((LEADING | TRAILING | BOTH)? quoted_string? FROM)? concatenation ')'
-    | VALIDATE_CONVERSION '(' concatenation AS type_spec (',' quoted_string (',' quoted_string)?)? ')'
-    | XMLAGG '(' expression order_by_clause? ')' ('.' general_element_part)*
-    | (XMLCOLATTVAL | XMLFOREST) '(' xml_multiuse_expression_element (
-        ',' xml_multiuse_expression_element
-    )* ')' ('.' general_element_part)*
-    | XMLELEMENT '(' (ENTITYESCAPING | NOENTITYESCAPING)? (NAME | EVALNAME)? expression (
-        /*TODO{input.LT(2).getText().equalsIgnoreCase("xmlattributes")}?*/ ',' xml_attributes_clause
-    )? (',' expression column_alias?)* ')' ('.' general_element_part)*
-    | XMLEXISTS '(' expression xml_passing_clause? ')'
-    | XMLPARSE '(' (DOCUMENT | CONTENT) concatenation WELLFORMED? ')' ('.' general_element_part)*
-    | XMLPI '(' (NAME identifier | EVALNAME concatenation) (',' concatenation)? ')' (
-        '.' general_element_part
-    )*
-    | XMLQUERY '(' concatenation xml_passing_clause? RETURNING CONTENT (NULL_ ON EMPTY_)? ')' (
-        '.' general_element_part
-    )*
-    | XMLROOT '(' concatenation (',' xmlroot_param_version_part)? (
-        ',' xmlroot_param_standalone_part
-    )? ')' ('.' general_element_part)*
-    | XMLSERIALIZE '(' (DOCUMENT | CONTENT) concatenation (AS type_spec)? xmlserialize_param_enconding_part? xmlserialize_param_version_part?
-        xmlserialize_param_ident_part? ((HIDE | SHOW) DEFAULTS)? ')' ('.' general_element_part)?
-    | TIME CHAR_STRING
-    | xmltable
+    : TO_TIMESTAMP '(' quoted_string ')'
     ;
 
 over_clause_keyword
@@ -6927,16 +7058,27 @@ link_name
     : identifier
     ;
 
+/* the rule below is changed to improve parse performance of Oracle redo log queries
 column_name
     : identifier ('.' id_expression)*
     ;
+*/
+
+column_name
+    : identifier
+    ;
+
+// the rule below is changed to improve parse performance of Oracle redo log queries
+//tableview_name
+//    : identifier ('.' id_expression)? (
+//        AT_SIGN link_name (PERIOD link_name)*
+//        | /*TODO{!(input.LA(2) == BY)}?*/ partition_extension_clause
+//    )?
+//    | xmltable outer_join_sign?
+//    ;
 
 tableview_name
-    : identifier ('.' id_expression)? (
-        AT_SIGN link_name (PERIOD link_name)*
-        | /*TODO{!(input.LA(2) == BY)}?*/ partition_extension_clause
-    )?
-    | xmltable outer_join_sign?
+    : identifier ('.' id_expression)
     ;
 
 xmltable
@@ -7013,8 +7155,14 @@ respect_or_ignore_nulls
     : (RESPECT | IGNORE) NULLS
     ;
 
+/* the rule below is changed to improve parse performance of Oracle redo log queries
 argument
     : (identifier '=' '>')? expression
+    ;
+*/
+
+argument
+    : expression
     ;
 
 type_spec
@@ -9353,7 +9501,8 @@ non_reserved_keywords_pre12c
     | TO_BLOB
     | TO_CHAR
     | TO_CLOB
-    | TO_DATE
+// the rule below is changed to improve parse performance of Oracle redo log queries
+//    | TO_DATE
     | TO_DSINTERVAL
     | TO_LOB
     | TO_MULTI_BYTE
@@ -9363,7 +9512,8 @@ non_reserved_keywords_pre12c
     | TOPLEVEL
     | TO_SINGLE_BYTE
     | TO_TIME
-    | TO_TIMESTAMP
+// the rule below is changed to improve parse performance of Oracle redo log queries
+//    | TO_TIMESTAMP
     | TO_TIMESTAMP_TZ
     | TO_TIME_TZ
     | TO_YMINTERVAL
