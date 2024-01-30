@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ package com.exactpro.th2.codec.oracle.logminer
 
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.api.IReportingContext
+import com.exactpro.th2.codec.oracle.logminer.antlr.listener.InsertListener
+import com.exactpro.th2.codec.oracle.logminer.antlr.listener.UpdateListener
 import com.exactpro.th2.codec.oracle.logminer.cfg.LogMinerConfiguration
 import com.exactpro.th2.codec.util.ERROR_CONTENT_FIELD
 import com.exactpro.th2.codec.util.ERROR_TYPE_MESSAGE
@@ -26,14 +28,6 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGro
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.common.utils.message.transport.logId
 import mu.KotlinLogging
-import net.sf.jsqlparser.expression.Expression
-import net.sf.jsqlparser.expression.Function
-import net.sf.jsqlparser.expression.LongValue
-import net.sf.jsqlparser.expression.NullValue
-import net.sf.jsqlparser.expression.StringValue
-import net.sf.jsqlparser.parser.CCJSqlParserUtil
-import net.sf.jsqlparser.statement.insert.Insert
-import net.sf.jsqlparser.statement.update.Update
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 
@@ -62,33 +56,31 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
 
                     when (operation) {
                         "INSERT" -> {
-                            val insert = CCJSqlParserUtil.parse(sqlRedo) as Insert
-                            check(insert.columns.size == insert.select.values.expressions.size) {
-                                "Incorrect query '$sqlRedo', column and value sizes mismatch, id: ${message.id.logId}"
-                            }
                             message.toBuilderWithoutBody().apply {
                                 bodyBuilder().apply {
-                                    insert.columns.forEachIndexed { index, column ->
-                                        put(
-                                            "${config.columnPrefix}${column.columnName.trim('"')}",
-                                            insert.select.values.expressions[index].toReadable(context::warning)
-                                        )
-                                    }
+                                    InsertListener.parse(
+                                        this,
+                                        config.columnPrefix,
+                                        config.trimParsedContent,
+                                        sqlRedo
+                                    )
                                 }
                             }
                         }
 
                         "UPDATE" -> {
-                            val update = CCJSqlParserUtil.parse(sqlRedo) as Update
-
                             message.toBuilderWithoutBody().apply {
                                 bodyBuilder().apply {
-                                    update.updateSets.forEach {
-                                        put(
-                                            "${config.columnPrefix}${it.columns.single().columnName.trim('"')}",
-                                            it.values.single().toReadable(context::warning)
-                                        )
-                                    }
+                                    UpdateListener.parse(
+                                        this,
+                                        config.columnPrefix,
+                                        config.trimParsedContent,
+                                        if (config.truncateUpdateQueryFromWhereClause) {
+                                            truncateFromWhereClause(sqlRedo)
+                                        } else {
+                                            sqlRedo
+                                        }
+                                    )
                                 }
                             }
                         }
@@ -97,10 +89,20 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                         else -> error("Unsupported operation kind '$operation'")
                     }
                 }.getOrElse { e ->
-                    LOGGER.error(e) { "Message transformation failure, id: ${message.id.logId}" }
+                    if (messageGroup.messages.size == 1) {
+                        throw e
+                    }
+
+                    val error = e.extractMessage()
+
+                    "Message transformation failure, id: ${message.id.logId}".also { text ->
+                        LOGGER.error(e) { text }
+                        context.warning("$text $error")
+                    }
+
                     message.toBuilderWithoutBody().apply {
                         setType(ERROR_TYPE_MESSAGE)
-                        bodyBuilder().put(ERROR_CONTENT_FIELD, e.message)
+                        bodyBuilder().put(ERROR_CONTENT_FIELD, error)
                     }
                 }.apply {
                     setProtocol(TransformerFactory.AGGREGATED_PROTOCOL)
@@ -127,12 +129,13 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
     }
 
     companion object {
-        private val LOGGER = KotlinLogging.logger {}
+        val LOGGER = KotlinLogging.logger {}
         private const val LOG_MINER_OPERATION_COLUMN = "OPERATION"
         private const val LOG_MINER_SQL_REDO_COLUMN = "SQL_REDO"
         private const val LOG_MINER_ROW_ID_COLUMN = "ROW_ID"
         private const val LOG_MINER_TIMESTAMP_COLUMN = "TIMESTAMP"
         private const val LOG_MINER_TABLE_NAME_COLUMN = "TABLE_NAME"
+        private const val WHERE_CLAUSE = "WHERE"
 
         internal val REQUIRED_COLUMNS: Set<String> = hashSetOf(
             LOG_MINER_OPERATION_COLUMN,
@@ -142,6 +145,15 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
             LOG_MINER_TABLE_NAME_COLUMN,
         )
 
+        internal fun truncateFromWhereClause(query: String): String {
+            val whereIndex = query.indexOf(WHERE_CLAUSE, ignoreCase = true)
+            return if (whereIndex == -1) {
+                query
+            } else {
+                "${query.substring(0, whereIndex)};"
+            }
+        }
+
         internal fun ParsedMessage.toBuilderWithoutBody() = ParsedMessage.builder().apply {
             setId(this@toBuilderWithoutBody.id)
             this@toBuilderWithoutBody.eventId?.let(this::setEventId)
@@ -150,24 +162,6 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
             setProtocol(this@toBuilderWithoutBody.protocol)
         }
 
-        internal fun Function.toReadable(onWarning: (String) -> Unit): Map<String, Any?> {
-            return hashMapOf(
-                "function" to name,
-                "parameters" to parameters.map { it.toReadable(onWarning) }
-            )
-        }
-
-        internal fun Expression.toReadable(onWarning: (String) -> Unit): Any? {
-            return when (this) {
-                is Function -> toReadable(onWarning)
-                is StringValue -> value.trim()
-                is LongValue -> value
-                is NullValue -> null
-                else -> {
-                    onWarning("Unsupported expression: '$this', type: ${this::class.java}")
-                    toString()
-                }
-            }
-        }
+        private fun Throwable.extractMessage(): String? = message?.lines()?.first()
     }
 }

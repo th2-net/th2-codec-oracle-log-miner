@@ -6,3 +6,4 @@ shared
 # Idea
 .idea
 out/
+src/main/gen/
