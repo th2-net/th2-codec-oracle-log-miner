@@ -30,10 +30,16 @@ import java.util.LinkedList
 import java.util.Queue
 
 internal class InsertListener private constructor(
-    private val builder: MapBuilder<String, Any?>,
-    private val prefix: String,
+    builder: MapBuilder<String, Any?>,
+    prefix: String,
+    trimContent: Boolean,
     query: String
-) : AbstractListener(query) {
+) : AbstractListener(
+    builder,
+    prefix,
+    trimContent,
+    query,
+) {
     private val columNames: Queue<String> = LinkedList()
     private var stage = BEGIN
 
@@ -115,7 +121,7 @@ internal class InsertListener private constructor(
                     "Column name isn't specified for $value value"
                 }
                 if (value != null) {
-                    builder.put("${prefix}${column}", value)
+                    putValue(column, value)
                 }
                 expressionHolder.clear()
                 LOGGER.trace { "Handled '$column' to '$value' pair" }
@@ -167,7 +173,8 @@ internal class InsertListener private constructor(
         fun parse(
             builder: MapBuilder<String, Any?>,
             prefix: String,
+            trimContent: Boolean,
             query: String,
-        ) = InsertListener(builder, prefix, query).parse()
+        ) = InsertListener(builder, prefix, trimContent, query).parse()
     }
 }

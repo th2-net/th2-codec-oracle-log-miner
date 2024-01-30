@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.ValueSource
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
@@ -59,7 +60,7 @@ class LogMinerTransformerTest {
 
     @Test
     fun decodesDataUsingDefaultHeader() {
-        val config = LogMinerConfiguration()
+        val config = LogMinerConfiguration().apply { trimParsedContent = false }
         val codec = LogMinerTransformer(config)
         val sourceMessages: List<ParsedMessage> = loadMessages()
         assertEquals(4, sourceMessages.size)
@@ -300,18 +301,19 @@ class LogMinerTransformerTest {
         }
     }
 
-    @Test
-    fun `insert parser test`() {
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `insert parser test`(trimContent: Boolean) {
         val query = """
                 INSERT INTO "OWNER"."table"("NAME","TIMESTAMP","DATE","NUMBER","FLOAT","NULL","DATA") 
-                VALUES ('An',TO_TIMESTAMP('12-DEC-23 02.55.01 PM'), TO_DATE('12-DEC-23', 'DD-MON-RR'), 8, 1.1, NULL, HEXTORAW('746573742d64617461'));
+                VALUES (' An ',TO_TIMESTAMP('12-DEC-23 02.55.01 PM'), TO_DATE('12-DEC-23', 'DD-MON-RR'), 8, 1.1, NULL, HEXTORAW('746573742d64617461'));
                 """
         val builder = MapBuilder<String, Any?>()
-        InsertListener.parse(builder, TEST_PREFIX, query)
+        InsertListener.parse(builder, TEST_PREFIX, trimContent, query)
 
         expectThat(builder.build()) {
             hasSize(6)
-            get { get("${TEST_PREFIX}NAME") }.isEqualTo("An")
+            get { get("${TEST_PREFIX}NAME") }.isEqualTo(" An ".conditionallyTrim(trimContent))
             get { get("${TEST_PREFIX}NUMBER") }.isEqualTo(8L)
             get { get("${TEST_PREFIX}FLOAT") }.isEqualTo(1.1)
             get { get("${TEST_PREFIX}TIMESTAMP") }.isA<Map<String, Any>>().and {
@@ -328,11 +330,12 @@ class LogMinerTransformerTest {
         }
     }
 
-    @Test
-    fun `update parser test`() {
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `update parser test`(trimContent: Boolean) {
         val query = """
                 UPDATE "OWNER"."table" SET 
-                  "NAME" = 'An', 
+                  "NAME" = ' An ', 
                   "TIMESTAMP" = TO_TIMESTAMP('12-DEC-23 02.55.01 PM'),
                   "DATE" = TO_DATE('12-DEC-23', 'DD-MON-RR'),
                   "NUMBER" = 8,
@@ -343,11 +346,11 @@ class LogMinerTransformerTest {
                   ROWID = 'test-row-id';
             """.trimIndent()
         val builder = MapBuilder<String, Any?>()
-        UpdateListener.parse(builder, TEST_PREFIX, query)
+        UpdateListener.parse(builder, TEST_PREFIX, trimContent, query)
 
         expectThat(builder.build()) {
             hasSize(7)
-            get { get("${TEST_PREFIX}NAME") }.isEqualTo("An")
+            get { get("${TEST_PREFIX}NAME") }.isEqualTo(" An ".conditionallyTrim(trimContent))
             get { get("${TEST_PREFIX}NUMBER") }.isEqualTo(8L)
             get { get("${TEST_PREFIX}FLOAT") }.isEqualTo(1.1)
             get { get("${TEST_PREFIX}NULL") }.isNull()
@@ -404,5 +407,7 @@ class LogMinerTransformerTest {
 
     companion object {
         private const val TEST_PREFIX = "test-prefix-"
+
+        private fun String.conditionallyTrim(trim: Boolean) = if (trim) trim() else this
     }
 }

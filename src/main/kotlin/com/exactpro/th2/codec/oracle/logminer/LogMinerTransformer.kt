@@ -58,7 +58,12 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                         "INSERT" -> {
                             message.toBuilderWithoutBody().apply {
                                 bodyBuilder().apply {
-                                    InsertListener.parse(this, config.columnPrefix, sqlRedo)
+                                    InsertListener.parse(
+                                        this,
+                                        config.columnPrefix,
+                                        config.trimParsedContent,
+                                        sqlRedo
+                                    )
                                 }
                             }
                         }
@@ -69,6 +74,7 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                                     UpdateListener.parse(
                                         this,
                                         config.columnPrefix,
+                                        config.trimParsedContent,
                                         if (config.truncateUpdateQueryFromWhereClause) {
                                             truncateFromWhereClause(sqlRedo)
                                         } else {

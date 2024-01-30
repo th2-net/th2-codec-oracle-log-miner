@@ -19,6 +19,7 @@ package com.exactpro.th2.codec.oracle.logminer.antlr.listener
 import com.exactpro.th2.codec.oracle.logminer.antlr.PlSqlLexer
 import com.exactpro.th2.codec.oracle.logminer.antlr.PlSqlParser
 import com.exactpro.th2.codec.oracle.logminer.antlr.PlSqlParserBaseListener
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.builders.MapBuilder
 import mu.KotlinLogging
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
@@ -27,7 +28,10 @@ import org.antlr.v4.runtime.tree.ParseTree
 import org.antlr.v4.runtime.tree.ParseTreeWalker
 
 abstract class AbstractListener(
-    private val query: String
+    private val builder: MapBuilder<String, Any?>,
+    private val prefix: String,
+    private val trimContent: Boolean,
+    private val query: String,
 ): PlSqlParserBaseListener() {
 
     private val errorListener = SyntaxErrorListener()
@@ -55,7 +59,10 @@ abstract class AbstractListener(
     }
 
     override fun enterQuoted_string(ctx: PlSqlParser.Quoted_stringContext) {
-        expressionHolder.last().appendValue(ctx.text.removeSurrounding("'"))
+        val value = ctx.text.removeSurrounding("'").run {
+            if (trimContent) trim() else this
+        }
+        expressionHolder.last().appendValue(value)
     }
 
     override fun exitOther_function(ctx: PlSqlParser.Other_functionContext) {
@@ -139,6 +146,10 @@ abstract class AbstractListener(
             throw IllegalStateException("Unary expression can't be completed, text: ${ctx.text}", it)
         }
         return expression
+    }
+
+    protected fun putValue(column: String, value: Any?) {
+        builder.put("${prefix}${column}", value)
     }
 
     private fun exitFunction(ctx: ParserRuleContext, expressionName: String) {

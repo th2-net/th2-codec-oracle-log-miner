@@ -23,10 +23,16 @@ import org.antlr.v4.runtime.ParserRuleContext
 import org.antlr.v4.runtime.tree.ParseTree
 
 internal class UpdateListener private constructor(
-    private val builder: MapBuilder<String, Any?>,
-    private val prefix: String,
+    builder: MapBuilder<String, Any?>,
+    prefix: String,
+    trimContent: Boolean,
     query: String
-) : AbstractListener(query) {
+) : AbstractListener(
+    builder,
+    prefix,
+    trimContent,
+    query
+) {
     private var rowValue: RowValue? = null
 
     override fun enterUpdate_statement(ctx: PlSqlParser.Update_statementContext) {
@@ -112,7 +118,7 @@ internal class UpdateListener private constructor(
                 "Incorrect state for parsing column name: current row value isn't completed $this, text: ${ctx.text}"
             }
 
-            builder.put("${prefix}${column}", value)
+            putValue(column, value)
             rowValue = null
             LOGGER.trace { "Handled '$column' to '$value' pair" }
         }
@@ -150,7 +156,8 @@ internal class UpdateListener private constructor(
         fun parse(
             builder: MapBuilder<String, Any?>,
             prefix: String,
+            trimContent: Boolean,
             query: String,
-        ) = UpdateListener(builder, prefix, query).parse()
+        ) = UpdateListener(builder, prefix, trimContent, query).parse()
     }
 }

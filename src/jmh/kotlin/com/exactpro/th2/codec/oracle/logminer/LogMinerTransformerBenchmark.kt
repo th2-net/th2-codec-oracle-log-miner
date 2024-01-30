@@ -17,8 +17,6 @@
 package com.exactpro.th2.codec.oracle.logminer
 
 import com.exactpro.th2.codec.api.IReportingContext
-import com.exactpro.th2.codec.oracle.logminer.antlr.PlSqlLexer
-import com.exactpro.th2.codec.oracle.logminer.antlr.PlSqlParser
 import com.exactpro.th2.codec.oracle.logminer.antlr.listener.InsertListener
 import com.exactpro.th2.codec.oracle.logminer.antlr.listener.UpdateListener
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.builders.MapBuilder
@@ -30,9 +28,6 @@ import net.sf.jsqlparser.expression.StringValue
 import net.sf.jsqlparser.parser.CCJSqlParserUtil
 import net.sf.jsqlparser.statement.insert.Insert
 import net.sf.jsqlparser.statement.update.Update
-import org.antlr.v4.runtime.CharStreams
-import org.antlr.v4.runtime.CommonTokenStream
-import org.antlr.v4.runtime.tree.ParseTreeWalker
 import org.openjdk.jmh.annotations.Benchmark
 import org.openjdk.jmh.annotations.BenchmarkMode
 import org.openjdk.jmh.annotations.Mode.Throughput
@@ -288,7 +283,7 @@ open class LogMinerTransformerBenchmark {
     ) {
         blackHole.consume(
             MapBuilder<String, Any?>().apply {
-                InsertListener.parse(this, "", sql)
+                InsertListener.parse(this, "", true, sql)
             }
         )
     }
@@ -299,7 +294,7 @@ open class LogMinerTransformerBenchmark {
     ) {
         blackHole.consume(
             MapBuilder<String, Any?>().apply {
-                UpdateListener.parse(this, "", sql)
+                UpdateListener.parse(this, "", true, sql)
             }
         )
     }
