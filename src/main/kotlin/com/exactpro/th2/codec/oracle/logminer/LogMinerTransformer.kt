@@ -124,7 +124,11 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
 
         return message is ParsedMessage
                 && (message.protocol.isBlank() || TransformerFactory.PROTOCOLS.contains(message.protocol)).also {
-            LOGGER.debug { "The ${message.id.logId} message isn't appropriate, type: '${message::class.java}', protocol: '${message.protocol}'" }
+                    if (!it) {
+                        LOGGER.warn {
+                            "The ${message.id.logId} message isn't appropriate, type: '${message::class.java}', protocol: '${message.protocol}'"
+                        }
+                    }
         }
     }
 
