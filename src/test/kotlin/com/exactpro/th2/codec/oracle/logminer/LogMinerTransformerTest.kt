@@ -18,6 +18,10 @@ package com.exactpro.th2.codec.oracle.logminer
 
 import com.exactpro.th2.codec.api.IReportingContext
 import com.exactpro.th2.codec.oracle.logminer.LogMinerTransformer.Companion.truncateFromWhereClause
+import com.exactpro.th2.codec.oracle.logminer.OPERATIONS.INSERT
+import com.exactpro.th2.codec.oracle.logminer.OPERATIONS.UPDATE
+import com.exactpro.th2.codec.oracle.logminer.OPERATIONS.DELETE
+import com.exactpro.th2.codec.oracle.logminer.OPERATIONS.UNSUPPORTED
 import com.exactpro.th2.codec.oracle.logminer.antlr.listener.InsertListener
 import com.exactpro.th2.codec.oracle.logminer.antlr.listener.UpdateListener
 import com.exactpro.th2.codec.oracle.logminer.cfg.LogMinerConfiguration
@@ -96,7 +100,7 @@ class LogMinerTransformerTest {
                             get { get("th2_VISION_PLAN") }.isEqualTo("Aetna Vision ")
                             get { get("th2_SAVINGS") }.isEqualTo("1")
                             get { get("th2_BONUS_STRUCTURE") }.isEqualTo("5% Quarterly ")
-                            get { get("OPERATION") }.isEqualTo("INSERT")
+                            get { get("OPERATION") }.isEqualTo(INSERT.name)
 
                             source.body.forEach { (key, value) ->
                                 if (config.saveColumns.contains(key)) {
@@ -120,7 +124,7 @@ class LogMinerTransformerTest {
                         get { body }.and {
                             isEqualTo(mapOf("th2_SAVINGS" to "10")
                                     + source.body.filterKeys { config.saveColumns.contains(it) })
-                            get { get("OPERATION") }.isEqualTo("UPDATE")
+                            get { get("OPERATION") }.isEqualTo(UPDATE.name)
                         }
                     }
                 }
@@ -137,7 +141,7 @@ class LogMinerTransformerTest {
                         get { protocol }.isEqualTo("[csv,oracle-log-miner]")
                         get { body }.and {
                             isEqualTo(source.body.filterKeys { config.saveColumns.contains(it) })
-                            get { get("OPERATION") }.isEqualTo("DELETE")
+                            get { get("OPERATION") }.isEqualTo(DELETE.name)
                         }
                     }
                 }
@@ -154,7 +158,7 @@ class LogMinerTransformerTest {
                         get { protocol }.isEqualTo("[csv,oracle-log-miner]")
                         get { body }.and {
                             isEqualTo(source.body.filterKeys { config.saveColumns.contains(it) })
-                            get { get("OPERATION") }.isEqualTo("UNSUPPORTED")
+                            get { get("OPERATION") }.isEqualTo(UNSUPPORTED.name)
                         }
                     }
                 }
@@ -176,7 +180,7 @@ class LogMinerTransformerTest {
                 .setId(baseId.copy(subsequence = listOf(1)))
                 .setBody(
                     mapOf(
-                        "OPERATION" to "INSERT",
+                        "OPERATION" to INSERT.name,
                         "SQL_REDO" to "broken query",
                         "ROW_ID" to 1,
                         "TIMESTAMP" to Instant.now().toString(),
@@ -190,7 +194,7 @@ class LogMinerTransformerTest {
                 .setId(baseId.copy(subsequence = listOf(2)))
                 .setBody(
                     mapOf(
-                        "OPERATION" to "UPDATE",
+                        "OPERATION" to UPDATE.name,
                         "SQL_REDO" to "broken query",
                         "ROW_ID" to 1,
                         "TIMESTAMP" to Instant.now().toString(),
@@ -283,7 +287,7 @@ class LogMinerTransformerTest {
                 )
                 .setBody(
                     mapOf(
-                        "OPERATION" to "INSERT",
+                        "OPERATION" to INSERT.name,
                         "SQL_REDO" to "broken query",
                         "ROW_ID" to 1,
                         "TIMESTAMP" to Instant.now().toString(),
@@ -317,7 +321,7 @@ class LogMinerTransformerTest {
                 )
                 .setBody(
                     mapOf(
-                        "OPERATION" to "UPDATE",
+                        "OPERATION" to UPDATE.name,
                         "SQL_REDO" to "broken query",
                         "ROW_ID" to 1,
                         "TIMESTAMP" to Instant.now().toString(),
