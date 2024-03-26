@@ -63,7 +63,7 @@ class LogMinerTransformerTest {
         val config = LogMinerConfiguration().apply { trimParsedContent = false }
         val codec = LogMinerTransformer(config)
         val sourceMessages: List<ParsedMessage> = loadMessages()
-        assertEquals(4, sourceMessages.size)
+        assertEquals(5, sourceMessages.size)
 
         sourceMessages[0].let { source ->
             assertEquals(67, source.body.size)
@@ -96,6 +96,7 @@ class LogMinerTransformerTest {
                             get { get("th2_VISION_PLAN") }.isEqualTo("Aetna Vision ")
                             get { get("th2_SAVINGS") }.isEqualTo("1")
                             get { get("th2_BONUS_STRUCTURE") }.isEqualTo("5% Quarterly ")
+                            get { get("OPERATION") }.isEqualTo("INSERT")
 
                             source.body.forEach { (key, value) ->
                                 if (config.saveColumns.contains(key)) {
@@ -116,9 +117,45 @@ class LogMinerTransformerTest {
                         get { eventId }.isEqualTo(source.eventId)
                         get { type }.isEqualTo("test-type")
                         get { protocol }.isEqualTo("[csv,oracle-log-miner]")
-                        get { body }.isEqualTo(mapOf(
-                            "th2_SAVINGS" to "10"
-                        ) + source.body.filterKeys { config.saveColumns.contains(it) })
+                        get { body }.and {
+                            isEqualTo(mapOf("th2_SAVINGS" to "10")
+                                    + source.body.filterKeys { config.saveColumns.contains(it) })
+                            get { get("OPERATION") }.isEqualTo("UPDATE")
+                        }
+                    }
+                }
+        }
+        sourceMessages[3].let { source ->
+            assertEquals(67, source.body.size)
+            expectThat(codec.decode(source.toGroup(), reportingContext).messages).hasSize(1)
+                .filterIsInstance<ParsedMessage>().apply {
+                    hasSize(1)
+                    single().apply {
+                        get { id }.isEqualTo(source.id)
+                        get { eventId }.isEqualTo(source.eventId)
+                        get { type }.isEqualTo("test-type")
+                        get { protocol }.isEqualTo("[csv,oracle-log-miner]")
+                        get { body }.and {
+                            isEqualTo(source.body.filterKeys { config.saveColumns.contains(it) })
+                            get { get("OPERATION") }.isEqualTo("DELETE")
+                        }
+                    }
+                }
+        }
+        sourceMessages[4].let { source ->
+            assertEquals(67, source.body.size)
+            expectThat(codec.decode(source.toGroup(), reportingContext).messages).hasSize(1)
+                .filterIsInstance<ParsedMessage>().apply {
+                    hasSize(1)
+                    single().apply {
+                        get { id }.isEqualTo(source.id)
+                        get { eventId }.isEqualTo(source.eventId)
+                        get { type }.isEqualTo("test-type")
+                        get { protocol }.isEqualTo("[csv,oracle-log-miner]")
+                        get { body }.and {
+                            isEqualTo(source.body.filterKeys { config.saveColumns.contains(it) })
+                            get { get("OPERATION") }.isEqualTo("UNSUPPORTED")
+                        }
                     }
                 }
         }

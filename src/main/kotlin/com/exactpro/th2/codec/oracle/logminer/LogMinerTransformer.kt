@@ -84,7 +84,7 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                                 }
                             }
                         }
-
+                        "UNSUPPORTED" -> message.toBuilderWithoutBody()
                         "DELETE" -> message.toBuilderWithoutBody()
                         else -> error("Unsupported operation kind '$operation'")
                     }
