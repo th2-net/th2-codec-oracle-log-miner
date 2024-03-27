@@ -18,6 +18,10 @@ package com.exactpro.th2.codec.oracle.logminer
 
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.api.IReportingContext
+import com.exactpro.th2.codec.oracle.logminer.OPERATIONS.DELETE
+import com.exactpro.th2.codec.oracle.logminer.OPERATIONS.INSERT
+import com.exactpro.th2.codec.oracle.logminer.OPERATIONS.UNSUPPORTED
+import com.exactpro.th2.codec.oracle.logminer.OPERATIONS.UPDATE
 import com.exactpro.th2.codec.oracle.logminer.antlr.listener.InsertListener
 import com.exactpro.th2.codec.oracle.logminer.antlr.listener.UpdateListener
 import com.exactpro.th2.codec.oracle.logminer.cfg.LogMinerConfiguration
@@ -55,7 +59,7 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                     }
 
                     when (operation) {
-                        "INSERT" -> {
+                        INSERT.name -> {
                             message.toBuilderWithoutBody().apply {
                                 bodyBuilder().apply {
                                     InsertListener.parse(
@@ -68,7 +72,7 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                             }
                         }
 
-                        "UPDATE" -> {
+                        UPDATE.name -> {
                             message.toBuilderWithoutBody().apply {
                                 bodyBuilder().apply {
                                     UpdateListener.parse(
@@ -84,8 +88,8 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                                 }
                             }
                         }
-
-                        "DELETE" -> message.toBuilderWithoutBody()
+                        UNSUPPORTED.name -> message.toBuilderWithoutBody()
+                        DELETE.name -> message.toBuilderWithoutBody()
                         else -> error("Unsupported operation kind '$operation'")
                     }
                 }.getOrElse { e ->
@@ -168,4 +172,11 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
 
         private fun Throwable.extractMessage(): String? = message?.lines()?.first()
     }
+}
+
+enum class OPERATIONS {
+    INSERT,
+    UPDATE,
+    DELETE,
+    UNSUPPORTED,
 }

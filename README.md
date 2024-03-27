@@ -1,4 +1,4 @@
-# th2-codec-oracle-log-miner (0.1.0)
+# th2-codec-oracle-log-miner (0.1.1)
 
 ## Description
 
@@ -142,6 +142,9 @@ spec:
 ```
 
 ## Release notes
+
+### 0.1.1
++ Support `UNSUPPORTED` operation.
 
 ### 0.1.0
 + Migrated to ANTLR 4 approach for parsing Oracle SQL queries.
