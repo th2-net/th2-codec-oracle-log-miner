@@ -1,4 +1,4 @@
-# th2-codec-oracle-log-miner (0.1.1)
+# th2-codec-oracle-log-miner (0.2.0)
 
 ## Description
 
@@ -142,6 +142,14 @@ spec:
 ```
 
 ## Release notes
+
+### 0.2.0
++ Migrated to th2 gradle plugin: `0.0.6`
++ Updated:
+    + bom `4.6.1`
+    + common: `5.10.1-dev`
+    + common-utils: `2.2.3-dev`
+    + codec: `5.5.0-dev`
 
 ### 0.1.1
 + Support `UNSUPPORTED` operation.
