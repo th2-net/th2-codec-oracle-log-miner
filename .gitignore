@@ -4,6 +4,6 @@ build
 shared
 
 # Idea
-.idea
+.idea/
 out/
 src/main/gen/
