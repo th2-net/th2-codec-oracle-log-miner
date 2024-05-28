@@ -6,8 +6,8 @@ plugins {
     id("java-library")
     id("maven-publish")
 
-    id "com.exactpro.th2.gradle.publish" version "0.0.6"
-    id "com.exactpro.th2.gradle.component" version "0.0.6"
+    id "com.exactpro.th2.gradle.publish" version "0.0.7"
+    id "com.exactpro.th2.gradle.component" version "0.0.7"
 
     id "antlr"
     id "me.champeau.jmh" version "0.7.2"
@@ -97,6 +97,10 @@ tasks.withType(KotlinCompile).configureEach {
 
 clean.doLast {
     file('src/main/gen').deleteDir()
+}
+
+licenseReport {
+    excludeBoms = true
 }
 
 dependencyCheck {
