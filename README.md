@@ -144,7 +144,8 @@ spec:
 ## Release notes
 
 ### 0.2.1
-+ Migrated to th2 gradle plugin: `0.0.7`
++ Migrated to th2 gradle plugin: `0.0.8`
++ Updated common: `5.12.0-dev`
 
 ### 0.2.0
 + Migrated to th2 gradle plugin: `0.0.6`
