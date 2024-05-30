@@ -177,7 +177,7 @@ class LogMinerTransformerTest {
             .build()
         val source: List<ParsedMessage> = listOf(
             ParsedMessage.builder()
-                .setId(baseId.copy(subsequence = listOf(1)))
+                .setId(baseId.toBuilder().setSubsequence(listOf(1)).build())
                 .setBody(
                     mapOf(
                         "OPERATION" to INSERT.name,
@@ -191,7 +191,7 @@ class LogMinerTransformerTest {
                 .setProtocol("")
                 .build(),
             ParsedMessage.builder()
-                .setId(baseId.copy(subsequence = listOf(2)))
+                .setId(baseId.toBuilder().setSubsequence(listOf(2)).build())
                 .setBody(
                     mapOf(
                         "OPERATION" to UPDATE.name,
@@ -205,7 +205,7 @@ class LogMinerTransformerTest {
                 .setProtocol("")
                 .build(),
             ParsedMessage.builder()
-                .setId(baseId.copy(subsequence = listOf(3)))
+                .setId(baseId.toBuilder().setSubsequence(listOf(3)).build())
                 .setBody(
                     mapOf(
                         "OPERATION" to "broken operation",

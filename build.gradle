@@ -6,8 +6,8 @@ plugins {
     id("java-library")
     id("maven-publish")
 
-    id "com.exactpro.th2.gradle.publish" version "0.0.6"
-    id "com.exactpro.th2.gradle.component" version "0.0.6"
+    id "com.exactpro.th2.gradle.publish" version "0.0.8"
+    id "com.exactpro.th2.gradle.component" version "0.0.8"
 
     id "antlr"
     id "me.champeau.jmh" version "0.7.2"
@@ -39,7 +39,7 @@ repositories {
 }
 
 dependencies {
-    implementation "com.exactpro.th2:common:5.10.1-dev"
+    implementation "com.exactpro.th2:common:5.12.0-dev"
     implementation "com.exactpro.th2:common-utils:2.2.3-dev"
     implementation "com.exactpro.th2:codec:5.5.0-dev"
 
