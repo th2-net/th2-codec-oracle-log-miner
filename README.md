@@ -147,6 +147,13 @@ spec:
 
 ### 0.3.0
 + Added `unescape-query` option.
++ Updated: th2 gradle plugin: `0.1.2`
++ Updated-lib:
+  + bom: `4.7.0`
+  + common: `5.14.0-dev`
+  + common-utils: `2.3.0-dev`
+  + kotlin-logging: `5.1.4`
+  + antlr4: `4.13.2`
 
 ### 0.2.1
 + Migrated to th2 gradle plugin: `0.0.8`

@@ -6,8 +6,8 @@ plugins {
     id("java-library")
     id("maven-publish")
 
-    id "com.exactpro.th2.gradle.publish" version "0.0.8"
-    id "com.exactpro.th2.gradle.component" version "0.0.8"
+    id "com.exactpro.th2.gradle.publish" version "0.1.2"
+    id "com.exactpro.th2.gradle.component" version "0.1.2"
 
     id "antlr"
     id "me.champeau.jmh" version "0.7.2"
@@ -39,17 +39,17 @@ repositories {
 }
 
 dependencies {
-    implementation "com.exactpro.th2:common:5.12.0-dev"
-    implementation "com.exactpro.th2:common-utils:2.2.3-dev"
+    implementation "com.exactpro.th2:common:5.14.0-dev"
+    implementation "com.exactpro.th2:common-utils:2.3.0-dev"
     implementation "com.exactpro.th2:codec:5.5.0-dev"
 
     implementation "com.fasterxml.jackson.core:jackson-databind"
     implementation 'org.apache.commons:commons-text'
 
-    implementation "io.github.microutils:kotlin-logging:3.0.5"
+    implementation 'io.github.oshai:kotlin-logging:5.1.4'
 
-    antlr 'org.antlr:antlr4:4.13.1'
-    implementation 'org.antlr:antlr4-runtime:4.13.1'
+    antlr 'org.antlr:antlr4:4.13.2'
+    implementation 'org.antlr:antlr4-runtime:4.13.2'
 
     jmh 'org.openjdk.jmh:jmh-core:1.37'
     jmh 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
@@ -59,10 +59,10 @@ dependencies {
     compileOnly "com.google.auto.service:auto-service-annotations:1.1.1"
     kapt "com.google.auto.service:auto-service:1.1.1"
 
-    testImplementation "com.github.doyaaaaaken:kotlin-csv-jvm:1.9.3"
+    testImplementation 'com.jsoizo:kotlin-csv:1.10.0'
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit"
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
-    testImplementation 'org.mockito.kotlin:mockito-kotlin:5.3.1'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.0'
+    testImplementation 'org.mockito.kotlin:mockito-kotlin:5.4.0'
     testImplementation 'io.strikt:strikt-core:0.34.1'
 }
 
