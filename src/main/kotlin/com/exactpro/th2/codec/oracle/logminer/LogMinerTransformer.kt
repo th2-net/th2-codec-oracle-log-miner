@@ -57,7 +57,7 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                     }
                     val sqlRedo = requireNotNull(message.body[LOG_MINER_SQL_REDO_COLUMN]?.toString()) {
                         "Message doesn't contain required field '$LOG_MINER_SQL_REDO_COLUMN', id: ${message.id.logId}"
-                    }.run { if (config.unescapeQuery) unescapeXml(this) else this }
+                    }.run { if (config.escapedQuery) unescapeXml(this) else this }
 
                     when (operation) {
                         INSERT.name -> {

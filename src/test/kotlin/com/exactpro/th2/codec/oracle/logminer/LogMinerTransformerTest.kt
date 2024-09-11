@@ -70,11 +70,11 @@ class LogMinerTransformerTest {
     )
     fun `decodes data using default header`(
         fileName: String,
-        unescapeQuery: String,
+        escapedQuery: String,
     ) {
         val config = LogMinerConfiguration().apply {
             this.trimParsedContent = false
-            this.unescapeQuery = unescapeQuery.toBoolean()
+            this.escapedQuery = escapedQuery.toBoolean()
         }
         val codec = LogMinerTransformer(config)
         val sourceMessages: List<ParsedMessage> = loadMessages(fileName)

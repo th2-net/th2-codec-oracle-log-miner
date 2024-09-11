@@ -38,7 +38,7 @@ class LogMinerConfiguration : IPipelineCodecSettings {
     @JsonPropertyDescription("Codec trims values parsed from SQL_REDO field")
     var trimParsedContent: Boolean = true
 
-    @JsonProperty("unescape-query")
+    @JsonProperty("escaped-query")
     @JsonPropertyDescription("Codec unescapes SQL_REDO field by XML standards before parse")
-    var unescapeQuery: Boolean = false
+    var escapedQuery: Boolean = false
 }
