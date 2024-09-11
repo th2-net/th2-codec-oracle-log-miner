@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,4 +37,8 @@ class LogMinerConfiguration : IPipelineCodecSettings {
     @JsonProperty("trim-parsed-content")
     @JsonPropertyDescription("Codec trims values parsed from SQL_REDO field")
     var trimParsedContent: Boolean = true
+
+    @JsonProperty("unescape-query")
+    @JsonPropertyDescription("Codec unescapes SQL_REDO field by XML standards before parse")
+    var unescapeQuery: Boolean = false
 }

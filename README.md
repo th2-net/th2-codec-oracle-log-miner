@@ -1,4 +1,4 @@
-# th2-codec-oracle-log-miner (0.2.1)
+# th2-codec-oracle-log-miner (0.3.0)
 
 ## Description
 
@@ -66,6 +66,7 @@ save-columns: [ OPERATION, SQL_REDO, ROW_ID, TIMESTAMP, TABLE_NAME ]
 **truncate-update-query-from-where-clause** - if true, codec truncates the tail of UPDATE query starting from the WHERE clause before deep parsing.
 This operation improve performance without negative impact, because codec extracts data from the SET clause only.
 **trim-parsed-content** - if true, Codec trims values parsed from `SQL_REDO` field. Default value is `true`
+**unescape-query** - if true, Codec unescapes `SQL_REDO` field by XML standards before parse. Default value is `false`
 **column-prefix** - prefix for parsed columns.
 **save-columns** - set of column names to copy from source message.
 All columns which log miner allow to select are described in the [document](https://docs.oracle.com/en/database/oracle/oracle-database/19/refrn/V-LOGMNR_CONTENTS.html#GUID-B9196942-07BF-4935-B603-FA875064F5C3) 
@@ -79,7 +80,7 @@ metadata:
   name: codec-oracle-log-miner
 spec:
   imageName: ghcr.io/th2-net/th2-codec-oracle-log-miner
-  imageVersion: 0.0.1
+  imageVersion: 0.3.0
   customConfig:
     transportLines:
       rpt:
@@ -92,6 +93,7 @@ spec:
     codecSettings:
       truncate-update-query-from-where-clause: true
       trim-parsed-content: true
+      unescape-query: false
       column-prefix: th2_
       save-columns:
         - OPERATION
@@ -142,6 +144,9 @@ spec:
 ```
 
 ## Release notes
+
+### 0.3.0
++ Added `unescape-query` option.
 
 ### 0.2.1
 + Migrated to th2 gradle plugin: `0.0.8`

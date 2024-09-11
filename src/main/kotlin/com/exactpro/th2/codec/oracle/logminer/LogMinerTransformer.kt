@@ -32,6 +32,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGro
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.common.utils.message.transport.logId
 import mu.KotlinLogging
+import org.apache.commons.text.StringEscapeUtils.unescapeXml
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 
@@ -56,7 +57,7 @@ class LogMinerTransformer(private val config: LogMinerConfiguration) : IPipeline
                     }
                     val sqlRedo = requireNotNull(message.body[LOG_MINER_SQL_REDO_COLUMN]?.toString()) {
                         "Message doesn't contain required field '$LOG_MINER_SQL_REDO_COLUMN', id: ${message.id.logId}"
-                    }
+                    }.run { if (config.unescapeQuery) unescapeXml(this) else this }
 
                     when (operation) {
                         INSERT.name -> {
