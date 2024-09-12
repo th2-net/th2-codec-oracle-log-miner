@@ -18,7 +18,7 @@ package com.exactpro.th2.codec.oracle.logminer.antlr.listener
 
 import com.exactpro.th2.codec.oracle.logminer.antlr.PlSqlParser
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.builders.MapBuilder
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.antlr.v4.runtime.ParserRuleContext
 import org.antlr.v4.runtime.tree.ParseTree
 

@@ -18,10 +18,10 @@ package com.exactpro.th2.codec.oracle.logminer
 
 import com.exactpro.th2.codec.api.IReportingContext
 import com.exactpro.th2.codec.oracle.logminer.LogMinerTransformer.Companion.truncateFromWhereClause
-import com.exactpro.th2.codec.oracle.logminer.OPERATIONS.INSERT
-import com.exactpro.th2.codec.oracle.logminer.OPERATIONS.UPDATE
 import com.exactpro.th2.codec.oracle.logminer.OPERATIONS.DELETE
+import com.exactpro.th2.codec.oracle.logminer.OPERATIONS.INSERT
 import com.exactpro.th2.codec.oracle.logminer.OPERATIONS.UNSUPPORTED
+import com.exactpro.th2.codec.oracle.logminer.OPERATIONS.UPDATE
 import com.exactpro.th2.codec.oracle.logminer.antlr.listener.InsertListener
 import com.exactpro.th2.codec.oracle.logminer.antlr.listener.UpdateListener
 import com.exactpro.th2.codec.oracle.logminer.cfg.LogMinerConfiguration
@@ -62,11 +62,22 @@ class LogMinerTransformerTest {
         verifyNoMoreInteractions(reportingContext)
     }
 
-    @Test
-    fun decodesDataUsingDefaultHeader() {
-        val config = LogMinerConfiguration().apply { trimParsedContent = false }
+    @ParameterizedTest
+    @CsvSource(
+        "log_miner.csv, true",
+        "log_miner.csv, false",
+        "log_miner_escaped.csv, true",
+    )
+    fun `decodes data using default header`(
+        fileName: String,
+        escapedQuery: String,
+    ) {
+        val config = LogMinerConfiguration().apply {
+            this.trimParsedContent = false
+            this.escapedQuery = escapedQuery.toBoolean()
+        }
         val codec = LogMinerTransformer(config)
-        val sourceMessages: List<ParsedMessage> = loadMessages()
+        val sourceMessages: List<ParsedMessage> = loadMessages(fileName)
         assertEquals(5, sourceMessages.size)
 
         sourceMessages[0].let { source ->
@@ -421,9 +432,9 @@ class LogMinerTransformerTest {
         assertEquals(target, truncateFromWhereClause(source))
     }
 
-    private fun loadMessages(): List<ParsedMessage> {
+    private fun loadMessages(fileName: String): List<ParsedMessage> {
         return LogMinerTransformerTest::class.java.getResourceAsStream(
-            "/com/exactpro/th2/codec/oracle/logminer/log_miner.csv"
+            "/com/exactpro/th2/codec/oracle/logminer/$fileName"
         ).use { inputStream ->
             requireNotNull(inputStream) {
                 "'log_miner.csv' resource doesn't exist"
